@@ -1,0 +1,18 @@
+import Foundation
+import Vapor
+import TelegramVaporBot
+
+final class TelegramController: RouteCollection {
+    
+    func boot(routes: Vapor.RoutesBuilder) throws {
+        routes.get("telegramWebHook", use: telegramWebHook)
+    }
+}
+
+extension TelegramController {
+    
+    func telegramWebHook(_ req: Request) async throws -> Bool {
+        let update: TGUpdate = try req.content.decode(TGUpdate.self)
+        return try await tgBotConnection.connection.dispatcher.process([update])
+    }
+}

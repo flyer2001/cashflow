@@ -1,6 +1,7 @@
 import Vapor
 import Dispatch
 import Logging
+import TelegramVaporBot
 
 /// This extension is temporary and can be removed once Vapor gets this support.
 private extension Vapor.Application {
@@ -25,8 +26,9 @@ enum Entrypoint {
     static func main() async throws {
         var env = try Environment.detect()
         try LoggingSystem.bootstrap(from: &env)
+        let eventLoop: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount * 4)
         
-        let app = Application(env)
+        let app = Application(env, Application.EventLoopGroupProvider.shared(eventLoop))
         defer { app.shutdown() }
         
         do {
@@ -38,3 +40,5 @@ enum Entrypoint {
         try await app.runFromAsyncMainEntrypoint()
     }
 }
+
+let tgBotConnection = TGBotConnection()

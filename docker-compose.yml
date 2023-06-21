@@ -19,7 +19,7 @@ x-shared_environment: &shared_environment
   
 services:
   app:
-    image: tgbot1:latest
+    image: tgbot:latest
     build:
       context: .
     environment:
