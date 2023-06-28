@@ -9,6 +9,14 @@ final class DefaultBotHandlers {
         await commandPingHandler(app: app, connection: connection)
         await commandShowButtonsHandler(app: app, connection: connection)
         await buttonsActionHandler(app: app, connection: connection)
+        
+        await connection.dispatcher.add(TGBaseHandler({update, bot in
+            guard let userId = update.message?.from?.id,
+                  let chatId = update.message?.chat.id
+            else { return }
+            let params = TGSendMessageParams(chatId: .chat(chatId), text: "Твой юзер ID \(userId)")
+            try await connection.bot.sendMessage(params: params)
+        }))
     }
     
     private static func defaultBaseHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
