@@ -14,6 +14,7 @@ final class DefaultBotHandlers {
             
             guard userId == 566335622 else { return }
             let newMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Добро пожаловать, создатель. Загружаю обработчики...")
+            try await connection.bot.sendMessage(params: newMessage)
             
             await defaultBaseHandler(app: app, connection: connection)
             await messageHandler(app: app, connection: connection)
