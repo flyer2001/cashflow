@@ -4,18 +4,22 @@ import TelegramVaporBot
 final class DefaultBotHandlers {
 
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await defaultBaseHandler(app: app, connection: connection)
-        await messageHandler(app: app, connection: connection)
-        await commandPingHandler(app: app, connection: connection)
-        await commandShowButtonsHandler(app: app, connection: connection)
-        await buttonsActionHandler(app: app, connection: connection)
-        
         await connection.dispatcher.add(TGBaseHandler({update, bot in
             guard let userId = update.message?.from?.id,
                   let chatId = update.message?.chat.id
             else { return }
+            
             let params = TGSendMessageParams(chatId: .chat(chatId), text: "Твой юзер ID \(userId)")
             try await connection.bot.sendMessage(params: params)
+            
+            guard userId == 566335622 else { return }
+            let newMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Добро пожаловать, создатель. Загружаю обработчики...")
+            
+            await defaultBaseHandler(app: app, connection: connection)
+            await messageHandler(app: app, connection: connection)
+            await commandPingHandler(app: app, connection: connection)
+            await commandShowButtonsHandler(app: app, connection: connection)
+            await buttonsActionHandler(app: app, connection: connection)
         }))
     }
     
