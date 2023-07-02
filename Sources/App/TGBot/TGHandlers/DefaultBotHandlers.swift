@@ -21,7 +21,7 @@ final class DefaultBotHandlers {
             guard let message = update.message,
             message.from?.id == 566335622
             else { return }
-            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены...")
+            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены. Далее отвечать будет ChatGPTBot")
             try await connection.bot.sendMessage(params: params)
             await messageHandler(app: app, connection: connection)
         })
@@ -31,8 +31,14 @@ final class DefaultBotHandlers {
         let state = State()
         await connection.dispatcher.add(
             TGMessageHandler(filters: (.all && !.command.names(["/exit"]))) { update, bot in
-                guard await state.isDialog else { return }
-                let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "ну что лупа")
+                guard
+                    await state.isDialog,
+                    let textFromUser = update.message?.text
+                else { return }
+                let api = ChatGPTAPI(apiKey: "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")
+                let gptAnswer = try await api.sendMessage(text: textFromUser)
+                
+                let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: gptAnswer)
                 try await connection.bot.sendMessage(params: params)
             }
         )
