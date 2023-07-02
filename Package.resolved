@@ -19,12 +19,30 @@
       }
     },
     {
+      "identity" : "chatgptswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/alfianlosari/ChatGPTSwift.git",
+      "state" : {
+        "revision" : "3add305675795c1eeec93d6175a9b04d6f415c15",
+        "version" : "1.4.0"
+      }
+    },
+    {
       "identity" : "console-kit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/console-kit.git",
       "state" : {
         "revision" : "447f1046fb4e9df40973fe426ecb24a6f0e8d3b4",
         "version" : "4.6.0"
+      }
+    },
+    {
+      "identity" : "gptencoder",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/alfianlosari/GPTEncoder.git",
+      "state" : {
+        "revision" : "a86968867ab4380e36b904a14c42215f71efe8b4",
+        "version" : "1.0.4"
       }
     },
     {
@@ -104,8 +122,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-metrics.git",
       "state" : {
-        "revision" : "34025104068262db0cc998ace178975c5ff4f36b",
-        "version" : "2.4.0"
+        "revision" : "971ba26378ab69c43737ee7ba967a896cb74c0d1",
+        "version" : "2.4.1"
       }
     },
     {

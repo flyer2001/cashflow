@@ -1,42 +1,47 @@
 import Vapor
 import TelegramVaporBot
+import ChatGPTSwift
+
+actor State {
+    var isDialog = true
+    
+    func stopDialog() {
+        isDialog = false
+    }
+}
 
 final class DefaultBotHandlers {
 
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGBaseHandler({update, bot in
-            guard let userId = update.message?.from?.id,
-                  let chatId = update.message?.chat.id
-            else { return }
-            
-            let params = TGSendMessageParams(chatId: .chat(chatId), text: "Твой юзер ID \(userId)")
-            try await connection.bot.sendMessage(params: params)
-            
-            guard userId == 566335622 else { return }
-            let newMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Добро пожаловать, создатель. Загружаю обработчики...")
-            try await connection.bot.sendMessage(params: newMessage)
-            
-            await defaultBaseHandler(app: app, connection: connection)
-            await messageHandler(app: app, connection: connection)
-            await commandPingHandler(app: app, connection: connection)
-            await commandShowButtonsHandler(app: app, connection: connection)
-            await buttonsActionHandler(app: app, connection: connection)
-        }))
+        await startHandler(app: app, connection: connection)
     }
     
-    private static func defaultBaseHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGBaseHandler({ update, bot in
-            guard let message = update.message else { return }
-            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: "TGBaseHandler")
+    private static func startHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
+        await connection.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { update, bot in
+            guard let message = update.message,
+            message.from?.id == 566335622
+            else { return }
+            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены...")
             try await connection.bot.sendMessage(params: params)
-        }))
+            await messageHandler(app: app, connection: connection)
+        })
     }
 
     private static func messageHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGMessageHandler(filters: (.all && !.command.names(["/ping", "/show_buttons"]))) { update, bot in
-            let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "Success")
+        let state = State()
+        await connection.dispatcher.add(
+            TGMessageHandler(filters: (.all && !.command.names(["/exit"]))) { update, bot in
+                guard await state.isDialog else { return }
+                let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "ну что лупа")
+                try await connection.bot.sendMessage(params: params)
+            }
+        )
+        await connection.dispatcher.add(TGMessageHandler(filters: (.command.names(["/exit"]))) { update, bot in
+            await state.stopDialog()
+            let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "выход")
             try await connection.bot.sendMessage(params: params)
         })
+        
     }
 
     private static func commandPingHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
