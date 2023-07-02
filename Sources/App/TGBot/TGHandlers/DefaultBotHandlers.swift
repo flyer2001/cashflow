@@ -10,23 +10,43 @@ actor State {
     }
 }
 
-final class DefaultBotHandlers {
+actor Game {
+    
+    static func rollDice(numberOfDice: Int = 1) -> Int {
+        var result = 0
+        
+        for _ in 1...numberOfDice {
+            let diceRoll = Int.random(in: 1...6)
+            result += diceRoll
+        }
+        
+        return result
+    }
+}
 
+final class DefaultBotHandlers {
+    
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await startHandler(app: app, connection: connection)
+        await playHandler(app: app, connection: connection)
     }
     
     private static func startHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await connection.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { update, bot in
-            guard let message = update.message,
-            message.from?.id == 566335622
-            else { return }
-            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены. Далее отвечать будет ChatGPTBot")
+            guard let message = update.message else { return }
+            
+            let params: TGSendMessageParams
+            if message.from?.id == 566335622 {
+                params = TGSendMessageParams(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены. Далее отвечать будет ChatGPTBot")
+            } else {
+                params = TGSendMessageParams(chatId: .chat(message.chat.id), text: "Для начала игры наберите /play")
+            }
+            
             try await connection.bot.sendMessage(params: params)
             await messageHandler(app: app, connection: connection)
         })
     }
-
+    
     private static func messageHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         let state = State()
         await connection.dispatcher.add(
@@ -49,45 +69,61 @@ final class DefaultBotHandlers {
         })
         
     }
-
+    
     private static func commandPingHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await connection.dispatcher.add(TGCommandHandler(commands: ["/ping"]) { update, bot in
             try await update.message?.reply(text: "pong", bot: bot)
         })
     }
-
-    private static func commandShowButtonsHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGCommandHandler(commands: ["/show_buttons"]) { update, bot in
+    
+    private static func playHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
+        await buttonsActionHandler(app: app, connection: connection)
+        await connection.dispatcher.add(TGCommandHandler(commands: ["/play"]) { update, bot in
             guard let userId = update.message?.from?.id else { fatalError("user id not found") }
             let buttons: [[TGInlineKeyboardButton]] = [
-                [.init(text: "Button 1", callbackData: "press 1"), .init(text: "Button 2", callbackData: "press 2")]
+                [.init(text: "Бросить кубик 🎲", callbackData: "dice")],
+                [.init(text: "Вернуть долг 💸", callbackData: "borrow")],
+                [.init(text: "Взять кредит 💸", callbackData: "repay")]
             ]
             let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
             let params: TGSendMessageParams = .init(chatId: .chat(userId),
-                                                    text: "Keyboard active",
+                                                    text: "Ваш ход",
                                                     replyMarkup: .inlineKeyboardMarkup(keyboard))
             try await connection.bot.sendMessage(params: params)
         })
     }
-
+    
     private static func buttonsActionHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "press 1") { update, bot in
+        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "dice") { update, bot in
+            guard let chatId = update.callbackQuery?.message?.chat.id else { return }
+            
+            let result = Game.rollDice()
+            try await bot.sendDice(params: .init(chatId: .chat(chatId)))
+            try await bot.sendMessage(params: .init(
+                chatId: .chat(chatId),
+                text: "*Выпало:* \(result)",
+                parseMode: .markdownV2)
+            )
+        })
+        
+        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "borrow") { update, bot in
             let params: TGAnswerCallbackQueryParams = .init(callbackQueryId: update.callbackQuery?.id ?? "0",
-                                                            text: update.callbackQuery?.data  ?? "data not exist",
+                                                            text: "Menu",
                                                             showAlert: nil,
                                                             url: nil,
                                                             cacheTime: nil)
             try await bot.answerCallbackQuery(params: params)
         })
         
-        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "press 2") { update, bot in
+        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "repay") { update, bot in
             let params: TGAnswerCallbackQueryParams = .init(callbackQueryId: update.callbackQuery?.id ?? "0",
-                                                            text: update.callbackQuery?.data  ?? "data not exist",
+                                                            text: "Menu",
                                                             showAlert: nil,
                                                             url: nil,
                                                             cacheTime: nil)
             try await bot.answerCallbackQuery(params: params)
         })
     }
+    
 }
 
