@@ -11,7 +11,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/vapor.git", from: "4.76.0"),
         .package(url: "https://github.com/nerzh/telegram-vapor-bot", .upToNextMajor(from: "2.2.0")),
         // ChatGPT
-        .package(url: "https://github.com/flyer2001/ChatGPTSwift.git", from: "1.4.0")
+        .package(url: "https://github.com/flyer2001/ChatGPTSwift", from: "1.4.1")
     ],
     targets: [
         .executableTarget(

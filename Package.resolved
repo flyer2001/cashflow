@@ -21,10 +21,10 @@
     {
       "identity" : "chatgptswift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/alfianlosari/ChatGPTSwift.git",
+      "location" : "https://github.com/flyer2001/ChatGPTSwift",
       "state" : {
-        "revision" : "3add305675795c1eeec93d6175a9b04d6f415c15",
-        "version" : "1.4.0"
+        "branch" : "main",
+        "revision" : "c47feb31a697fb865ed0038c1b167629137d11a0"
       }
     },
     {
