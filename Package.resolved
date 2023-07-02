@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/flyer2001/ChatGPTSwift",
       "state" : {
-        "branch" : "main",
-        "revision" : "c47feb31a697fb865ed0038c1b167629137d11a0"
+        "revision" : "d7af9ce5d546d5deb1ed4b7bbd8157c82b32bddb",
+        "version" : "1.4.1"
       }
     },
     {
