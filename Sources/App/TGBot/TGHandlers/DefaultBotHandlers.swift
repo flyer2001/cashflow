@@ -98,6 +98,10 @@ final class DefaultBotHandlers {
     private static func photoHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await buttonsActionHandler(app: app, connection: connection)
         await connection.dispatcher.add(TGCommandHandler(commands: ["/photo"]) { update, bot in
+            
+            let messParams = TGSendMessageParams(chatId: .chat(update.message?.chat.id ?? 0), text: app.directory.publicDirectory + "rat_ring.png")
+            try await connection.bot.sendMessage(params: params)
+            
             guard let chatId = update.message?.chat.id,
                   let imageData = FileManager.default.contents(atPath: app.directory.publicDirectory + "rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
             else { return }
