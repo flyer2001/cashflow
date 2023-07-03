@@ -11,7 +11,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/vapor.git", from: "4.76.0"),
         .package(url: "https://github.com/nerzh/telegram-vapor-bot", .upToNextMajor(from: "2.2.0")),
         // ChatGPT
-        .package(url: "https://github.com/flyer2001/ChatGPTSwift", .upToNextMajor(from: "1.0.0"))
+        .package(url: "https://github.com/flyer2001/ChatGPTSwift", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/t-ae/Swim", .upToNextMajor(from: "3.0.0")),
     ],
     targets: [
         .executableTarget(
@@ -19,7 +20,8 @@ let package = Package(
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "TelegramVaporBot", package: "telegram-vapor-bot"),
-                .product(name: "ChatGPTSwift", package: "ChatGPTSwift")
+                .product(name: "ChatGPTSwift", package: "ChatGPTSwift"),
+                .product(name: "Swim", package: "Swim")
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of
