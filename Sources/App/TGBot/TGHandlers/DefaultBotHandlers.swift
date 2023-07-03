@@ -30,6 +30,7 @@ final class DefaultBotHandlers {
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await startHandler(app: app, connection: connection)
         await playHandler(app: app, connection: connection)
+        await photoHandler(app: app, connection: connection)
     }
     
     private static func startHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
@@ -91,6 +92,20 @@ final class DefaultBotHandlers {
                                                     text: "Ваш ход",
                                                     replyMarkup: .inlineKeyboardMarkup(keyboard))
             try await connection.bot.sendMessage(params: params)
+        })
+    }
+    
+    private static func photoHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
+        await buttonsActionHandler(app: app, connection: connection)
+        await connection.dispatcher.add(TGCommandHandler(commands: ["/photo"]) { update, bot in
+            guard let chatId = update.message?.chat.id,
+                  let imageData = FileManager.default.contents(atPath: app.directory.publicDirectory + "rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
+            else { return }
+
+            let photo = TGFileInfo.file(.init(filename: "rat_ring", data: imageData))
+            
+            let params = TGSendPhotoParams(chatId: .chat(chatId), photo: photo)
+            try await connection.bot.sendPhoto(params: params)
         })
     }
     
