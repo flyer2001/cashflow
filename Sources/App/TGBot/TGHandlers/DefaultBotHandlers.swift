@@ -11,7 +11,36 @@ actor State {
     }
 }
 
+let defaultBoard: [String] = [
+    "Рынок",
+    "Возможности",
+    "Роскошь",
+    "Возможности",
+    "Ребенок",
+    "Возможности",
+    "Расчетный чек / Конфликт",
+    "Возможности",
+    "Рынок",
+    "Возможности",
+    "Роскошь",
+    "Возможности",
+    "Увольнение",
+    "Возможности",
+    "Расчетный чек / Конфликт",
+    "Возможности",
+    "Рынок",
+    "Возможности",
+    "Роскошь",
+    "Возможности",
+    "Благотворительность / Давай познакомимся",
+    "Возможности",
+    "Расчетный чек / Конфликт",
+    "Возможности"
+]
+
 actor Game {
+    let board: [String] = defaultBoard
+    var currentPlayerPosition: Int = 9
     
     static func rollDice(numberOfDice: Int = 1) -> Int {
         var result = 0
@@ -23,6 +52,18 @@ actor Game {
         
         return result
     }
+    
+    func move(step: Int) -> String {
+        currentPlayerPosition += step
+        if currentPlayerPosition >= board.count {
+            currentPlayerPosition %= board.count
+        }
+        return board[currentPlayerPosition]
+    }
+    
+    func reset() {
+        currentPlayerPosition = 9
+    }
 }
 
 final class DefaultBotHandlers {
@@ -30,7 +71,6 @@ final class DefaultBotHandlers {
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await startHandler(app: app, connection: connection)
         await playHandler(app: app, connection: connection)
-        await photoHandler(app: app, connection: connection)
     }
     
     private static func startHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
@@ -79,9 +119,14 @@ final class DefaultBotHandlers {
     }
     
     private static func playHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await buttonsActionHandler(app: app, connection: connection)
+        let game = Game()
+        await buttonsActionHandler(app: app, connection: connection, game: game)
+        
         await connection.dispatcher.add(TGCommandHandler(commands: ["/play"]) { update, bot in
             guard let userId = update.message?.from?.id else { fatalError("user id not found") }
+            await game.reset()
+            await sendMap(for: game.currentPlayerPosition, chatId: update.message?.chat.id ?? 0,app: app, connection: connection)
+            
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")],
                 [.init(text: "Вернуть долг 💸", callbackData: "borrow")],
@@ -95,35 +140,62 @@ final class DefaultBotHandlers {
         })
     }
     
-    private static func photoHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await buttonsActionHandler(app: app, connection: connection)
-        await connection.dispatcher.add(TGCommandHandler(commands: ["/photo"]) { update, bot in
-            
-            let messParams = TGSendMessageParams(chatId: .chat(update.message?.chat.id ?? 0), text: app.directory.publicDirectory + "rat_ring.png")
-            try await connection.bot.sendMessage(params: messParams)
-            
-            guard let chatId = update.message?.chat.id,
-                  let imageData = FileManager.default.contents(atPath: app.directory.publicDirectory + "rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
-            else { return }
-
-            let photo = TGFileInfo.file(.init(filename: "rat_ring", data: imageData))
-            
-            let params = TGSendPhotoParams(chatId: .chat(chatId), photo: photo)
-            try await connection.bot.sendPhoto(params: params)
-        })
+    private static func sendMap(for position: Int, chatId: Int64, app: Vapor.Application, connection: TGConnectionPrtcl) async {
+        // app.directory.publicDirectory + "rat_ring.png"
+        guard let imageData = FileManager.default.contents(atPath: app.directory.publicDirectory + "rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
+        else { return }
+        
+        // Создаем Image из Data
+        guard var sourceImage = try? Image<RGBA, UInt8>(fileData: imageData) else { return }
+        let sectorCount = 24
+        let circleRadius = 30
+        
+        // Определяем размеры изображения
+        let imageWidth = sourceImage.width
+        let imageHeight = sourceImage.height
+        
+        // Определяем размеры сектора на вписанной окружности
+        let sectorAngle = 2.0 * .pi / Double(sectorCount)
+        let radius = Double(min(imageWidth, imageHeight) / 2)
+        let offsetAngle = sectorAngle / 2.0
+  
+        let angle = sectorAngle * Double(position) + offsetAngle
+        let sectorX = Int((cos(angle) * radius ) / 1.5) + (imageWidth / 2)
+        let sectorY = Int((sin(angle) * radius ) / 1.5) + (imageHeight / 2)
+        sourceImage.drawCircle(center: (x: sectorX, y: sectorY), radius: circleRadius, color: Color<RGBA, UInt8>(r: 255, g: 0, b: 0, a: 255))
+        
+        guard let outputImageData = try? sourceImage.fileData() else { return }
+           
+        let photo = TGFileInfo.file(.init(filename: "rat_ring", data: outputImageData))
+        
+        let params = TGSendPhotoParams(chatId: .chat(chatId), photo: photo)
+        _ = try? await connection.bot.sendPhoto(params: params)
     }
     
-    private static func buttonsActionHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
+    private static func buttonsActionHandler(app: Vapor.Application, connection: TGConnectionPrtcl, game: Game) async {
         await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "dice") { update, bot in
             guard let chatId = update.callbackQuery?.message?.chat.id else { return }
             
-            let result = Game.rollDice()
-            try await bot.sendDice(params: .init(chatId: .chat(chatId)))
+            let message = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
+            guard let diceResult = message.dice?.value else { return }
+            let targetTitle = await game.move(step: diceResult)
+            
             try await bot.sendMessage(params: .init(
                 chatId: .chat(chatId),
-                text: "*Выпало:* \(result)",
+                text: "*Выпало:* \(diceResult) \n*Теперь вы находитесь на*: \(targetTitle)",
                 parseMode: .markdownV2)
             )
+            await sendMap(for: game.currentPlayerPosition, chatId: chatId, app: app, connection: connection)
+            let buttons: [[TGInlineKeyboardButton]] = [
+                [.init(text: "Бросить кубик 🎲", callbackData: "dice")],
+                [.init(text: "Вернуть долг 💸", callbackData: "borrow")],
+                [.init(text: "Взять кредит 💸", callbackData: "repay")]
+            ]
+            let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
+            let params: TGSendMessageParams = .init(chatId: .chat(update.callbackQuery?.from.id ?? 0),
+                                                    text: "Ваш ход",
+                                                    replyMarkup: .inlineKeyboardMarkup(keyboard))
+            try await connection.bot.sendMessage(params: params)
         })
         
         await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "borrow") { update, bot in
