@@ -5,19 +5,27 @@ import Swim
 
 actor State {
     var isDialog = true
-    
+
     func stopDialog() {
         isDialog = false
     }
 }
 
+actor ImageCache {
+    private var cache: [Int: String] = [:]
+    
+    func getValue(for key: Int) -> String? {
+        cache[key]
+    }
+    
+    func setValue(_ value: String, for key: Int) {
+        cache[key] = value
+    }
+}
+
+let cache = ImageCache()
+
 let defaultBoard: [String] = [
-    "Рынок",
-    "Возможности",
-    "Роскошь",
-    "Возможности",
-    "Ребенок",
-    "Возможности",
     "Расчетный чек / Конфликт",
     "Возможности",
     "Рынок",
@@ -35,7 +43,13 @@ let defaultBoard: [String] = [
     "Благотворительность / Давай познакомимся",
     "Возможности",
     "Расчетный чек / Конфликт",
-    "Возможности"
+    "Возможности",
+    "Рынок",
+    "Возможности",
+    "Роскошь",
+    "Возможности",
+    "Ребенок",
+    "Возможности",
 ]
 
 actor Game {
@@ -140,9 +154,23 @@ final class DefaultBotHandlers {
         })
     }
     
+    private static func sendMapFromCache(for position: Int, chatId: Int64, app: Vapor.Application, connection: TGConnectionPrtcl) async {
+        guard let fileId = await cache.getValue(for: position) else {
+            await sendMap(for: position, chatId: chatId, app: app, connection: connection)
+            return
+        }
+        let photo = TGFileInfo.fileId(fileId)
+        
+        do {
+            try await connection.bot.sendPhoto(params: TGSendPhotoParams(chatId: .chat(chatId), photo: photo))
+        } catch {
+            await sendMap(for: position, chatId: chatId, app: app, connection: connection)
+        }
+    }
+    
     private static func sendMap(for position: Int, chatId: Int64, app: Vapor.Application, connection: TGConnectionPrtcl) async {
         // app.directory.publicDirectory + "rat_ring.png"
-        guard let imageData = FileManager.default.contents(atPath: app.directory.publicDirectory + "rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
+        guard let imageData = FileManager.default.contents(atPath: "/Users/sgpopyvanov/tgbot/Public/rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
         else { return }
         
         // Создаем Image из Data
@@ -169,7 +197,11 @@ final class DefaultBotHandlers {
         let photo = TGFileInfo.file(.init(filename: "rat_ring", data: outputImageData))
         
         let params = TGSendPhotoParams(chatId: .chat(chatId), photo: photo)
-        _ = try? await connection.bot.sendPhoto(params: params)
+        if let message = try? await connection.bot.sendPhoto(params: params),
+           let fileId = message.photo?.first?.fileId {
+            await cache.setValue(fileId, for: position)
+        }
+        
     }
     
     private static func buttonsActionHandler(app: Vapor.Application, connection: TGConnectionPrtcl, game: Game) async {
@@ -177,15 +209,15 @@ final class DefaultBotHandlers {
             guard let chatId = update.callbackQuery?.message?.chat.id else { return }
             
             let message = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
+            try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = message.dice?.value else { return }
             let targetTitle = await game.move(step: diceResult)
-            
             try await bot.sendMessage(params: .init(
                 chatId: .chat(chatId),
                 text: "*Выпало:* \(diceResult) \n*Теперь вы находитесь на*: \(targetTitle)",
                 parseMode: .markdownV2)
             )
-            await sendMap(for: game.currentPlayerPosition, chatId: chatId, app: app, connection: connection)
+            await sendMapFromCache(for: game.currentPlayerPosition, chatId: chatId, app: app, connection: connection)
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")],
                 [.init(text: "Вернуть долг 💸", callbackData: "borrow")],
