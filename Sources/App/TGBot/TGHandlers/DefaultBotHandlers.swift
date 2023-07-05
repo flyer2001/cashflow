@@ -170,7 +170,7 @@ final class DefaultBotHandlers {
     
     private static func sendMap(for position: Int, chatId: Int64, app: Vapor.Application, connection: TGConnectionPrtcl) async {
         // app.directory.publicDirectory + "rat_ring.png"
-        guard let imageData = FileManager.default.contents(atPath: "/Users/sgpopyvanov/tgbot/Public/rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
+        guard let imageData = FileManager.default.contents(atPath: app.directory.publicDirectory + "rat_ring.png")  // для локального теста "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
         else { return }
         
         // Создаем Image из Data
