@@ -42,3 +42,4 @@ enum Entrypoint {
 }
 
 let tgBotConnection = TGBotConnection()
+var tgBot: TGBot!
