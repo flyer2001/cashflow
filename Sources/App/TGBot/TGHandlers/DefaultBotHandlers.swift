@@ -106,6 +106,26 @@ actor Turn {
     }
 }
 
+enum Action {
+    case sendMessage(String)
+}
+
+final class HelpersFactory {
+    
+    static func sendMessage(chatId: Int64, connection: TGConnectionPrtcl, bot: TGBot, message: String, completion: ((TGMessage) -> ())? = nil) async throws {
+        // тут надо вилку сделать отправляется событие из из чата или из callbackquery или вообще не завяззываться на update
+        // обращаться к connection как синглтону и перестать его везде передавать
+        
+        let params: TGSendMessageParams = .init(chatId: .chat(chatId),
+                                                text: message)
+
+        let update = try await connection.bot.sendMessage(params: params)
+        completion?(update)
+    }
+    
+}
+
+
 final class HandlerFactory {
     
     static func createPlayHandler(app: Vapor.Application, connection: TGConnectionPrtcl, game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
@@ -122,7 +142,7 @@ final class HandlerFactory {
             let params: TGSendMessageParams = .init(chatId: .chat(userId),
                                                     text: "Ваш ход",
                                                     replyMarkup: .inlineKeyboardMarkup(keyboard))
-            completion?("Сообщение пользователю")
+
             try await connection.bot.sendMessage(params: params)
         }
     }
@@ -151,30 +171,26 @@ final class HandlerFactory {
                 [.init(text: "Завершить ход", callbackData: "endTurn")],
             ]
             let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let params: TGSendMessageParams = .init(chatId: .chat(update.callbackQuery?.from.id ?? 0),
+            let params: TGSendMessageParams = .init(chatId: .chat(chatId),
                                                     text: "Действуйте или завершите ход",
                                                     replyMarkup: .inlineKeyboardMarkup(keyboard))
             
 
             completion?("Сообщение пользователю")
-            try await connection.bot.sendMessage(params: params)
+            let message = try await connection.bot.sendMessage(params: params)
             await game.dice.resumeDice()
         }
     }
     
-    static func createEndTurnHandler(app: Vapor.Application, connection: TGConnectionPrtcl, game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl{
+    static func createEndTurnHandler(app: Vapor.Application, connection: TGConnectionPrtcl, game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(pattern: "endTurn") { update, bot in
-            
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
             let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let params: TGSendMessageParams = .init(chatId: .chat(update.callbackQuery?.from.id ?? 0),
-                                                    text: "Ваш ход:",
-                                                    replyMarkup: .inlineKeyboardMarkup(keyboard))
-
+            let editParams: TGEditMessageTextParams = .init(chatId: .chat(update.callbackQuery?.message?.chat.id ?? 0), messageId: update.callbackQuery?.message?.messageId, text: "Ваш ход", replyMarkup: keyboard)
+            try await connection.bot.editMessageText(params: editParams)
             completion?("Сообщение пользователю")
-            try await connection.bot.sendMessage(params: params)
             
             await game.turn.endTurn()
         }
