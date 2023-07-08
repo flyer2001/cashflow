@@ -8,12 +8,17 @@ public func configure(_ app: Application) async throws {
     let tgApi: String = "6173467253:AAEaImjv6mkqSJh3XxmBwQzuoJbyH9Su2Mo"
     TGBot.log.logLevel = app.logger.logLevel
     let bot: TGBot = .init(app: app, botId: tgApi)
-    await tgBotConnection.setConnection(try await TGLongPollingConnection(bot: bot))
+    await App.setConnection(try await TGLongPollingConnection(bot: bot))
     
-    await DefaultBotHandlers.addHandlers(app: app, connection: tgBotConnection.connection)
-    try await tgBotConnection.connection.start()
+    var imagePath = ""
+    #if os(Linux)
+        imagePath = app.directory.publicDirectory + "rat_ring.png"
+    #elseif os(macOS)
+        // Путь для дебага
+        imagePath = "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
+    #endif
+    await App.cache.setImagePath(path: imagePath)
     
-    
-    // register routes
-    try routes(app)
+    await DefaultBotHandlers.addHandlers()
+    try await App.startConnection()
 }

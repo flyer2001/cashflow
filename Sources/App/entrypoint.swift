@@ -22,7 +22,29 @@ private extension Vapor.Application {
 }
 
 @main
-enum Entrypoint {
+enum App {
+    private static var tgBotConnection = TGBotConnection()
+    static let cache = ImageCache()
+    
+    static var bot: TGBot {
+        get async {
+            await App.tgBotConnection.connection.bot
+        }
+    }
+    static var dispatcher: TGDispatcherPrtcl {
+        get async {
+            await App.tgBotConnection.connection.dispatcher
+        }
+    }
+    
+    // Настройка бота
+    static func setConnection(_ connection: TGConnectionPrtcl) async {
+        await tgBotConnection.setConnection(connection)
+    }
+    static func startConnection() async throws {
+        try await tgBotConnection.connection.start()
+    }
+    
     static func main() async throws {
         var env = try Environment.detect()
         try LoggingSystem.bootstrap(from: &env)
@@ -40,6 +62,3 @@ enum Entrypoint {
         try await app.runFromAsyncMainEntrypoint()
     }
 }
-
-let tgBotConnection = TGBotConnection()
-

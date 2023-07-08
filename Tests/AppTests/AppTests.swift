@@ -33,7 +33,7 @@ final class AppTests: XCTestCase {
             [.init(text: "Кнопка", callbackData: "button")],
         ]
         
-        try await HelpersFactory.sendMessage(
+        try await App.sendMessage(
             chatId: chatId,
             text: "*test*",
             parseMode: .markdownV2,
@@ -43,7 +43,7 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
             XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
             
-            try? await HelpersFactory.deleteMessage(chatId: chatId, messageId: message.messageId)
+            try? await App.deleteMessage(chatId: chatId, messageId: message.messageId)
         }
     }
     
@@ -65,17 +65,17 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(result.text, "textWithot markdown")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Другая Кнопка")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "newButton")
-            try? await HelpersFactory.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await HelpersFactory.sendMessage(
+        try await App.sendMessage(
             chatId: chatId,
             text: "*test*",
             parseMode: .markdownV2,
             inlineButtons: buttons
         ) { message in
             
-            try? await HelpersFactory.editMessage(
+            try? await App.editMessage(
                 chatId: chatId,
                 messageId: message.messageId,
                 newText: "textWithot markdown",
@@ -97,15 +97,15 @@ final class AppTests: XCTestCase {
         
         let imageData = try XCTUnwrap(FileManager.default.contents(atPath: "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"))
         
-        let editCaptionCompletion: ((TGMessage) async -> ())? = { result in
+        let editInlineButtonCompletion: ((TGMessage) async -> ())? = { result in
             expectation.fulfill()
             XCTAssertEqual(result.caption, "caption text")
             XCTAssertNil(result.replyMarkup)
             
-            try? await HelpersFactory.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await HelpersFactory.sendPhoto(
+        try await App.sendPhoto(
             chatId: chatId,
             captionText: "*caption* text",
             parseMode: .markdownV2,
@@ -116,13 +116,19 @@ final class AppTests: XCTestCase {
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
                 
-                try? await HelpersFactory.editCaption(
-                    chatId: chatId,
-                    messageId: message.messageId,
-                    newCaptionText: message.caption,
-                    parseMode: nil,
+//                try? await App.editCaption(
+//                    chatId: chatId,
+//                    messageId: message.messageId,
+//                    newCaptionText: message.caption,
+//                    parseMode: nil,
+//                    newButtons: nil,
+//                    completion: editCaptionCompletion
+//                )
+                try? await App.editInlineButtons(
+                    chatId: chatId, messageId:
+                        message.messageId,
                     newButtons: nil,
-                    completion: editCaptionCompletion
+                    completion: editInlineButtonCompletion
                 )
         }
         await waitForExpectations(timeout: 1, handler: nil)
@@ -148,10 +154,10 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка1")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button1")
             
-            try? await HelpersFactory.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await HelpersFactory.sendPhotoFromCache(
+        try await App.sendPhotoFromCache(
             chatId: chatId,
             fileId: fileID,
             captionText: "caption text without parsing",
@@ -161,7 +167,7 @@ final class AppTests: XCTestCase {
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
                 
-                try? await HelpersFactory.editCaption(
+                try? await App.editCaption(
                     chatId: chatId,
                     messageId: message.messageId,
                     newCaptionText: nil,
@@ -192,16 +198,16 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка1")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button1")
             
-            try? await HelpersFactory.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await HelpersFactory.sendMessage(
+        try await App.sendMessage(
             chatId: chatId,
             text: "*test*",
             parseMode: .markdownV2,
             inlineButtons: buttons
         ) { message in
-            try? await HelpersFactory.editInlineButtons(
+            try? await App.editInlineButtons(
                 chatId: chatId,
                 messageId: message.messageId,
                 newButtons: newButtons,
