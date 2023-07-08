@@ -112,25 +112,146 @@ enum Action {
 
 final class HelpersFactory {
     
-    static func sendMessage(chatId: Int64, connection: TGConnectionPrtcl, bot: TGBot, message: String, completion: ((TGMessage) -> ())? = nil) async throws {
-        // тут надо вилку сделать отправляется событие из из чата или из callbackquery или вообще не завяззываться на update
-        // обращаться к connection как синглтону и перестать его везде передавать
+    static func sendMessage(
+        chatId: Int64,
+        text: String,
+        parseMode: TGParseMode? = nil,
+        inlineButtons: [[TGInlineKeyboardButton]]? = nil,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let params = TGSendMessageParams(
+            chatId: .chat(chatId),
+            text: text,
+            parseMode: parseMode,
+            replyMarkup: TGReplyMarkup(inlineButtons: inlineButtons)
+        )
         
-        let params: TGSendMessageParams = .init(chatId: .chat(chatId),
-                                                text: message)
-
-        let update = try await connection.bot.sendMessage(params: params)
-        completion?(update)
+        let update = try await tgBotConnection.connection.bot.sendMessage(params: params)
+        await completion?(update)
     }
     
+    static func deleteMessage(chatId: Int64, messageId: Int) async throws {
+        let params = TGDeleteMessageParams(chatId: .chat(chatId), messageId: messageId)
+        
+        try await tgBotConnection.connection.bot.deleteMessage(params: params)
+    }
+    
+    static func editMessage(
+        chatId: Int64,
+        messageId: Int,
+        newText: String,
+        parseMode: TGParseMode? = nil,
+        newButtons: [[TGInlineKeyboardButton]]? = nil,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let params = TGEditMessageTextParams(
+            chatId: .chat(chatId),
+            messageId: messageId,
+            text: newText,
+            parseMode: parseMode,
+            replyMarkup: TGInlineKeyboardMarkup(buttons: newButtons)
+        )
+        
+        let update = try await tgBotConnection.connection.bot.editMessageText(params: params)
+        if case .message(let update) = update {
+            await completion?(update)
+        }
+    }
+    
+    static func sendPhoto(
+        chatId: Int64,
+        captionText: String? = nil,
+        parseMode:TGParseMode? = nil,
+        photoData: Data,
+        inlineButtons: [[TGInlineKeyboardButton]]? = nil,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let photo = TGFileInfo.file(TGInputFile(filename: "map", data: photoData))
+        let params = TGSendPhotoParams(
+            chatId: .chat(chatId),
+            photo: photo,
+            caption: captionText,
+            parseMode: parseMode,
+            replyMarkup: TGReplyMarkup(inlineButtons: inlineButtons)
+        )
+        
+        let update = try await tgBotConnection.connection.bot.sendPhoto(params: params)
+        await completion?(update)
+    }
+    
+
+    static func editCaption(
+        chatId: Int64,
+        messageId: Int,
+        newCaptionText: String?,
+        parseMode:TGParseMode?,
+        newButtons: [[TGInlineKeyboardButton]]?,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let params = TGEditMessageCaptionParams(
+            chatId: .chat(chatId),
+            messageId: messageId,
+            caption: newCaptionText,
+            parseMode: parseMode,
+            replyMarkup: TGInlineKeyboardMarkup(buttons: newButtons)
+        )
+        let update = try await tgBotConnection.connection.bot.editMessageCaption(params: params)
+        if case .message(let update) = update {
+            await completion?(update)
+        }
+    }
+    
+    static func sendPhotoFromCache(
+        chatId: Int64,
+        fileId: String,
+        captionText: String? = nil,
+        buttons: [[TGInlineKeyboardButton]]?,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let photo = TGFileInfo.fileId(fileId)
+        let update = try await tgBotConnection.connection.bot.sendPhoto(
+            params: TGSendPhotoParams(
+                chatId: .chat(chatId),
+                photo: photo,
+                caption: captionText,
+                replyMarkup: TGReplyMarkup(inlineButtons: buttons)
+            )
+        )
+        await completion?(update)
+    }
+    
+    static func editInlineButtons(chatId: Int64, messageId: Int, newButtons: [[TGInlineKeyboardButton]]?, completion: ((TGMessage) async -> ())? = nil) async throws {
+        let params = TGEditMessageReplyMarkupParams(
+            chatId: .chat(chatId),
+            messageId: messageId,
+            replyMarkup: TGInlineKeyboardMarkup(buttons: newButtons)
+        )
+        let update = try await tgBotConnection.connection.bot.editMessageReplyMarkup(params: params)
+        if case .message(let update) = update {
+            await completion?(update)
+        }
+    }
 }
 
+extension TGInlineKeyboardMarkup {
+    convenience init?(buttons: [[TGInlineKeyboardButton]]?) {
+        guard let buttons = buttons else { return nil }
+        self.init(inlineKeyboard: buttons)
+    }
+}
+
+extension TGReplyMarkup {
+    init?(inlineButtons: [[TGInlineKeyboardButton]]?) {
+        guard let keyboard = TGInlineKeyboardMarkup(buttons: inlineButtons) else { return nil }
+        self = .inlineKeyboardMarkup(keyboard)
+    }
+}
 
 final class HandlerFactory {
     
     static func createPlayHandler(app: Vapor.Application, connection: TGConnectionPrtcl, game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
         TGCommandHandler(name: "playHandler", commands: ["/play"]) { update, bot in
-            guard let userId = update.message?.from?.id else { fatalError("user id not found") }
+            guard let chatId = update.message?.chat.id else { fatalError("user id not found") }
             await game.reset()
             
             await sendMapFromCache(for: game.currentPlayerPosition, chatId: update.message?.chat.id ?? 0,app: app, connection: connection, completion: completion)
@@ -139,7 +260,7 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
             let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let params: TGSendMessageParams = .init(chatId: .chat(userId),
+            let params: TGSendMessageParams = .init(chatId: .chat(chatId),
                                                     text: "Ваш ход",
                                                     replyMarkup: .inlineKeyboardMarkup(keyboard))
 
@@ -263,14 +384,15 @@ final class DefaultBotHandlers {
             guard let message = update.message else { return }
             
             let params: TGSendMessageParams
-            if message.from?.id == 566335622 {
+            if message.from?.id == 566335622, message.chat.type == .private {
                 params = TGSendMessageParams(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены. Далее отвечать будет ChatGPTBot")
+                await messageHandler(app: app, connection: connection)
             } else {
                 params = TGSendMessageParams(chatId: .chat(message.chat.id), text: "Для начала игры наберите /play")
             }
             
             try await connection.bot.sendMessage(params: params)
-            await messageHandler(app: app, connection: connection)
+            
         })
     }
     
