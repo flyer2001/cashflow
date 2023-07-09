@@ -8,7 +8,15 @@ public func configure(_ app: Application) async throws {
     let tgApi: String = "6173467253:AAEaImjv6mkqSJh3XxmBwQzuoJbyH9Su2Mo"
     TGBot.log.logLevel = app.logger.logLevel
     let bot: TGBot = .init(app: app, botId: tgApi)
+    #if os(Linux)
+    await App.setConnection(try await TGWebHookConnection(bot: bot, webHookURL: "https://138.68.68.90/telegramWebHook"))
+    
+    #elseif os(macOS)
+    // LongPolling использовать только для дебага
     await App.setConnection(try await TGLongPollingConnection(bot: bot))
+    #endif
+    
+    
     
     var imagePath = ""
     #if os(Linux)
@@ -21,4 +29,27 @@ public func configure(_ app: Application) async throws {
     
     await DefaultBotHandlers.addHandlers()
     try await App.startConnection()
+    
+    #if os(Linux)
+    try routes(app)
+    #endif
+}
+
+func routes(_ app: Application) throws {
+    try app.register(collection: TelegramController())
+}
+
+final class TelegramController: RouteCollection {
+    
+    func boot(routes: Vapor.RoutesBuilder) throws {
+        routes.post("telegramWebHook", use: telegramWebHook)
+    }
+}
+
+extension TelegramController {
+    
+    func telegramWebHook(_ req: Request) async throws -> Bool {
+        let update: TGUpdate = try req.content.decode(TGUpdate.self)
+        return try await App.dispatcher.process([update])
+    }
 }
