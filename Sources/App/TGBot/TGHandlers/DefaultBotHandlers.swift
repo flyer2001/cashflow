@@ -139,7 +139,7 @@ final class DefaultBotHandlers {
                 let api = ChatGPTAPI(apiKey: "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")
                 let gptAnswer = try await api.sendMessage(text: textFromUser)
                 
-                let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: gptAnswer)
+                let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: gptAnswer, parseMode: .markdownV2)
                 try await App.bot.sendMessage(params: params)
             }
         )
