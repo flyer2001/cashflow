@@ -9,10 +9,8 @@ public func configure(_ app: Application) async throws {
     TGBot.log.logLevel = app.logger.logLevel
     let bot: TGBot = .init(app: app, botId: tgApi)
     #if os(Linux)
-    app.http.server.configuration.port = 443
     await App.setConnection(try await TGWebHookConnection(bot: bot, webHookURL: "https://popyvanov.ru/telegramWebHook"))
-    
-    
+
     #elseif os(macOS)
     // LongPolling использовать только для дебага
     await App.setConnection(try await TGLongPollingConnection(bot: bot))
