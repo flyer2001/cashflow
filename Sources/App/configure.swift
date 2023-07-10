@@ -16,8 +16,6 @@ public func configure(_ app: Application) async throws {
     await App.setConnection(try await TGLongPollingConnection(bot: bot))
     #endif
     
-    
-    
     var imagePath = ""
     #if os(Linux)
         imagePath = app.directory.publicDirectory + "rat_ring.png"
@@ -31,6 +29,7 @@ public func configure(_ app: Application) async throws {
     try await App.startConnection()
     
     #if os(Linux)
+    await App.bot.app.logger.debug("register controller")
     try routes(app)
     #endif
 }
@@ -49,7 +48,9 @@ final class TelegramController: RouteCollection {
 extension TelegramController {
     
     func telegramWebHook(_ req: Request) async throws -> Bool {
+        await App.bot.app.logger.debug("get telegram request")
         let update: TGUpdate = try req.content.decode(TGUpdate.self)
+        
         return try await App.dispatcher.process([update])
     }
 }
