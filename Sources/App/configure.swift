@@ -42,7 +42,7 @@ func routes(_ app: Application) throws {
 final class TelegramController: RouteCollection {
     
     func boot(routes: Vapor.RoutesBuilder) throws {
-        routes.post("telegramWebHook", use: telegramWebHook)
+        routes.get("telegramWebHook", use: telegramWebHook)
     }
 }
 
