@@ -1,6 +1,10 @@
 actor DialogState {
-    var isDialog = true
+    var isDialog = false
 
+    func startDialog() {
+        isDialog = true
+    }
+    
     func stopDialog() {
         isDialog = false
     }

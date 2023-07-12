@@ -2,32 +2,80 @@ import Vapor
 import TelegramVaporBot
 import ChatGPTSwift
 
+enum ChatBotEvent: Equatable {
+    case gameReset // Сброс игры
+    case sendMapFromCache
+    case mapIsDrawing
+    case sendDrawingMap
+    case saveCacheId
+    
+    case message(id: Int) // ID отправленного сообщения, для удаления в тестах
+}
+
 final class HandlerFactory {
     
-    static func createPlayHandler(game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
+    static func createPlayHandler(game: Game, completion: ((ChatBotEvent) -> ())? = nil) -> TGHandlerPrtcl {
         TGCommandHandler(name: "playHandler", commands: ["/play"]) { update, bot in
             guard let chatId = update.message?.chat.id else { fatalError("user id not found") }
             await game.reset()
-            
-            await sendMapFromCache(
-                for: game.currentPlayerPosition,
-                chatId: update.message?.chat.id ?? 0,
-                completion: completion
-            )
+            completion?(.gameReset)
             
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
-            let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let params: TGSendMessageParams = .init(chatId: .chat(chatId),
-                                                    text: "Ваш ход",
-                                                    replyMarkup: .inlineKeyboardMarkup(keyboard))
+            
+            try await sendMap(
+                for: game.currentPlayerPosition,
+                chatId: chatId,
+                captionText: "Ваш ход",
+                parseMode: nil,
+                buttons: buttons,
+                completion: completion
+            )
 
-            try await App.bot.sendMessage(params: params)
         }
     }
     
-    static func createButtonActionHandler(game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
+    private static func sendMap(
+        for position: Int,
+        chatId: Int64,
+        captionText: String?,
+        parseMode: TGParseMode?,
+        buttons: [[TGInlineKeyboardButton]]?,
+        completion: ((ChatBotEvent) -> ())?) async throws {
+            if let fileId = await App.cache.getValue(for: position) {
+                try await App.sendPhotoFromCache(
+                    chatId: chatId,
+                    fileId: fileId,
+                    captionText: captionText,
+                    parseMode: parseMode,
+                    buttons: buttons) { message in
+                        completion?(.message(id: message.messageId))
+                    }
+                completion?(.sendMapFromCache)
+                return
+            }
+            
+            let outputImageData = try await MapDrawer.drawMap(for: position)
+            completion?(.mapIsDrawing)
+            
+            try await App.sendPhoto(
+                chatId: chatId,
+                captionText: captionText,
+                parseMode: parseMode,
+                photoData: outputImageData,
+                inlineButtons: buttons
+            ) { message in
+                guard let fileId = message.photo?.first?.fileId else { return }
+                await App.cache.setValue(fileId, for: position)
+                completion?(.saveCacheId)
+                completion?(.message(id: message.messageId))
+            }
+            completion?(.sendDrawingMap)
+        }
+
+
+    static func createButtonActionHandler(game: Game, completion: ((ChatBotEvent) -> ())? = nil) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(name: "dice", pattern: "dice") { update, bot in
             guard let chatId = update.callbackQuery?.message?.chat.id,
                   await !game.dice.isBlocked,
@@ -37,70 +85,49 @@ final class HandlerFactory {
             await game.turn.startTurn()
             await game.dice.blockDice()
             let diceMessage = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
-            completion?("Жребий брошен")
+            
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
+            
             let targetTitle = await game.move(step: diceResult)
-            try await bot.sendMessage(params: .init(
-                chatId: .chat(chatId),
-                text: "*Выпало:* \(diceResult) \n*Теперь вы находитесь на*: \(targetTitle)",
-                parseMode: .markdownV2)
-            )
-            await sendMapFromCache(for: game.currentPlayerPosition, chatId: chatId, completion: completion)
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Завершить ход", callbackData: "endTurn")],
             ]
-            let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let params: TGSendMessageParams = .init(chatId: .chat(chatId),
-                                                    text: "Действуйте или завершите ход",
-                                                    replyMarkup: .inlineKeyboardMarkup(keyboard))
             
-
-            completion?("Сообщение пользователю")
-            let message = try await App.bot.sendMessage(params: params)
+            try await sendMap(
+                for: game.currentPlayerPosition,
+                chatId: chatId,
+                captionText: "*Выпало:* \(diceResult) \n\n*Теперь вы находитесь на*: \(targetTitle) \n\n Действуйте или завершите ход",
+                parseMode: .markdownV2,
+                buttons: buttons,
+                completion: completion
+            )
             await game.dice.resumeDice()
+            try await Task.sleep(nanoseconds: 3000000000)
+            try await App.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
+            try await App.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
         }
     }
     
     static func createEndTurnHandler(game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(pattern: "endTurn") { update, bot in
+            guard let chatId = update.callbackQuery?.message?.chat.id,
+                await !game.turn.isTurnEnd
+            else { return }
+            
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
-            let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let editParams: TGEditMessageTextParams = .init(chatId: .chat(update.callbackQuery?.message?.chat.id ?? 0), messageId: update.callbackQuery?.message?.messageId, text: "Ваш ход", replyMarkup: keyboard)
-            try await App.bot.editMessageText(params: editParams)
-            completion?("Сообщение пользователю")
+            
+            try await App.editCaption(
+                chatId: chatId,
+                messageId: update.callbackQuery?.message?.messageId ?? 0,
+                newCaptionText: "Ваш ход",
+                parseMode: nil,
+                newButtons: buttons
+            )
             
             await game.turn.endTurn()
-        }
-    }
-    
-    private static func sendMapFromCache(for position: Int, chatId: Int64, completion: ((String) -> ())?) async {
-        completion?("Карта отправлена")
-        guard let fileId = await App.cache.getValue(for: position) else {
-            try? await sendMap(for: position, chatId: chatId)
-            return
-        }
-        let photo = TGFileInfo.fileId(fileId)
-        
-        do {
-            try await App.bot.sendPhoto(params: TGSendPhotoParams(chatId: .chat(chatId), photo: photo))
-        } catch {
-            try? await sendMap(for: position, chatId: chatId)
-        }
-    }
-    
-    private static func sendMap(for position: Int, chatId: Int64) async throws {
-    
-        let outputImageData = try await MapDrawer.drawMap(for: position)
-           
-        let photo = TGFileInfo.file(.init(filename: "rat_ring", data: outputImageData))
-        
-        let params = TGSendPhotoParams(chatId: .chat(chatId), photo: photo)
-        if let message = try? await App.bot.sendPhoto(params: params),
-           let fileId = message.photo?.first?.fileId {
-            await App.cache.setValue(fileId, for: position)
         }
     }
 }
@@ -115,11 +142,14 @@ final class DefaultBotHandlers {
     private static func startHandler() async {
         await App.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { update, bot in
             guard let message = update.message else { return }
-            
+            let state = DialogState()
             let params: TGSendMessageParams
-            if message.from?.id == 566335622, message.chat.type == .private {
+            if message.from?.id == 566335622,
+               message.chat.type == .private,
+               await !state.isDialog
+            {
                 params = TGSendMessageParams(chatId: .chat(message.chat.id), text: "Добро пожаловать, создатель. Обработчики подгружены. Далее отвечать будет ChatGPTBot")
-                await messageHandler()
+                await messageHandler(state: state)
             } else {
                 params = TGSendMessageParams(chatId: .chat(message.chat.id), text: "Для начала игры наберите /play")
             }
@@ -128,8 +158,8 @@ final class DefaultBotHandlers {
         })
     }
     
-    private static func messageHandler() async {
-        let state = DialogState()
+    private static func messageHandler(state: DialogState) async {
+        await state.startDialog()
         await App.dispatcher.add(
             TGMessageHandler(filters: (.all && !.command.names(["/exit"]))) { update, bot in
                 guard
@@ -137,24 +167,21 @@ final class DefaultBotHandlers {
                     let textFromUser = update.message?.text
                 else { return }
                 let api = ChatGPTAPI(apiKey: "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")
-                let gptAnswer = try await api.sendMessage(text: textFromUser)
+                let gptAnswer = try await api.sendMessage(
+                    text: textFromUser
+                )
                 
                 let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: gptAnswer)
                 try await App.bot.sendMessage(params: params)
             }
         )
         await App.dispatcher.add(TGMessageHandler(filters: (.command.names(["/exit"]))) { update, bot in
+            guard await state.isDialog else { return }
             await state.stopDialog()
             let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "выход")
             try await App.bot.sendMessage(params: params)
         })
         
-    }
-    
-    private static func commandPingHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGCommandHandler(commands: ["/ping"]) { update, bot in
-            try await update.message?.reply(text: "pong", bot: bot)
-        })
     }
     
     private static func playHandler() async {
@@ -169,15 +196,6 @@ final class DefaultBotHandlers {
         await App.dispatcher.add(HandlerFactory.createButtonActionHandler(game: game))
         
         await App.dispatcher.add(HandlerFactory.createEndTurnHandler(game: game))
-        
-        await App.dispatcher.add(TGCallbackQueryHandler(pattern: "repay") { update, bot in
-            let params: TGAnswerCallbackQueryParams = .init(callbackQueryId: update.callbackQuery?.id ?? "0",
-                                                            text: "Menu",
-                                                            showAlert: nil,
-                                                            url: nil,
-                                                            cacheTime: nil)
-            try await bot.answerCallbackQuery(params: params)
-        })
     }
 }
 

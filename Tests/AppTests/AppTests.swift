@@ -13,7 +13,7 @@ final class AppTests: XCTestCase {
     let fileID = "AgACAgIAAxkDAAIF6GSpjMEcr34AAeQ4ToCeDYpLNio8mgAC7c4xGxrMUUkaEaPxpt35SwEAAwIAA3MAAy8E"
     
     func testHandlers() async throws {
-        let app = Application()
+        let app = Application(.testing)
         defer { app.shutdown() }
         try await configure(app)
 
@@ -22,8 +22,49 @@ final class AppTests: XCTestCase {
         try await sendPhotoWithInlineButtonsAndRemoveButtons()
         try await sendPhotoFromCacheWithCaptionAndRemoveCaption()
         try await sendMessageAndEditKeyboardOnly()
+        try await playHandlerTest()
+        
     }
-
+    
+    // Обработчик команды /play
+    private func playHandlerTest() async throws {
+        // имитируем отправку сообщения пользователем
+        let update = TGUpdate(
+            updateId: 12345,
+            message: TGMessage(
+                messageId: 1234,
+                date: 0,
+                chat: TGChat(
+                    id: chatId,
+                    type: .group
+                ),
+                text: "/play",
+                entities: [TGMessageEntity(type: .botCommand, offset: 0, length: 5)]
+            )
+        )
+        var events: [ChatBotEvent] = []
+        var messageId: Int = 0
+        let handler = HandlerFactory.createPlayHandler(game: Game()) { event in
+            if case .message(let id) = event {
+                messageId = id
+            } else {
+                events.append(event)
+            }
+        }
+        try await Task.sleep(nanoseconds: 2_000_000_000) // нужно подождать, пока прокидает все update сам бот
+        try await handler.handle(update: update, bot: App.bot)
+        XCTAssertEqual(events, [.gameReset, .mapIsDrawing, .saveCacheId, .sendDrawingMap])
+        
+        try await App.deleteMessage(chatId: chatId, messageId: messageId)
+        events = []
+        
+        // Запрашиваем повторный запрос update старта игры, чтобы проверить отправку из кеша
+        
+        try await handler.handle(update: update, bot: App.bot)
+        XCTAssertEqual(events, [.gameReset, .sendMapFromCache])
+        try await App.deleteMessage(chatId: chatId, messageId: messageId)
+    }
+    
     // Проверка отправки сообщения
     private func sendMessage() async throws {
         
@@ -116,14 +157,6 @@ final class AppTests: XCTestCase {
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
                 
-//                try? await App.editCaption(
-//                    chatId: chatId,
-//                    messageId: message.messageId,
-//                    newCaptionText: message.caption,
-//                    parseMode: nil,
-//                    newButtons: nil,
-//                    completion: editCaptionCompletion
-//                )
                 try? await App.editInlineButtons(
                     chatId: chatId, messageId:
                         message.messageId,
