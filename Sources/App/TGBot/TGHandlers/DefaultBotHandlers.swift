@@ -102,9 +102,9 @@ final class HandlerFactory {
                 completion: completion
             )
             await game.dice.resumeDice()
-            try await Task.sleep(nanoseconds: 2000000000)
-            try await App.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
-            try await App.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
+//            try await Task.sleep(nanoseconds: 2000000000)
+//            try await App.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
+//            try await App.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
         }
     }
     
@@ -118,6 +118,7 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
             
+            await App.bot.app.logger.debug("Попытка поправить сообщение")
             try await App.editCaption(
                 chatId: chatId,
                 messageId: update.callbackQuery?.message?.messageId ?? 0,
@@ -125,8 +126,9 @@ final class HandlerFactory {
                 parseMode: nil,
                 newButtons: buttons
             )
-            
+            await App.bot.app.logger.debug("Попытка удалась")
             await game.turn.endTurn()
+            await App.bot.app.logger.debug("Ход завершен")
         }
     }
 }
