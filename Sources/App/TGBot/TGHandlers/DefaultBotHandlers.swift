@@ -83,10 +83,8 @@ final class HandlerFactory {
             
             await game.turn.startTurn()
             await game.dice.blockDice()
-            await App.bot.app.logger.debug("try send dice")
             let diceMessage = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
             
-            await App.bot.app.logger.debug("wait dice")
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
             
@@ -95,7 +93,6 @@ final class HandlerFactory {
                 [.init(text: "Завершить ход", callbackData: "endTurn")],
             ]
             
-            await App.bot.app.logger.debug("try send map")
             try await sendMap(
                 for: game.currentPlayerPosition,
                 chatId: chatId,
@@ -105,16 +102,14 @@ final class HandlerFactory {
                 completion: completion
             )
             await game.dice.resumeDice()
-            await App.bot.app.logger.debug("resume dice")
-//            try await Task.sleep(nanoseconds: 2000000000)
-//            try await App.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
-//            try await App.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
+            try await Task.sleep(nanoseconds: 2000000000)
+            try await App.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
+            try await App.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
         }
     }
     
     static func createEndTurnHandler(game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(pattern: "endTurn") { update, bot in
-            await App.bot.app.logger.debug("end Turn handler")
             guard let chatId = update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd
             else { return }
@@ -123,7 +118,6 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
             
-            await App.bot.app.logger.debug("try edit")
             try await App.editCaption(
                 chatId: chatId,
                 messageId: update.callbackQuery?.message?.messageId ?? 0,
@@ -190,12 +184,9 @@ final class DefaultBotHandlers {
     }
     
     private static func playHandler() async {
-        await App.bot.app.logger.debug("create game")
         let game = Game()
-        await App.bot.app.logger.debug("create dice and endTurn handlerhandler")
         await buttonsActionHandler(game: game)
         
-        await App.bot.app.logger.debug("add start handler")
         await App.dispatcher.add(HandlerFactory.createPlayHandler(game: game))
     }
     
