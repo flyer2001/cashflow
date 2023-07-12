@@ -118,7 +118,7 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
             
-            await App.bot.app.logger.debug("Попытка поправить сообщение")
+            await App.bot.app.logger.log(level: .debug, "try edittion caption")
             try await App.editCaption(
                 chatId: chatId,
                 messageId: update.callbackQuery?.message?.messageId ?? 0,
@@ -126,9 +126,9 @@ final class HandlerFactory {
                 parseMode: nil,
                 newButtons: buttons
             )
-            await App.bot.app.logger.debug("Попытка удалась")
+            await App.bot.app.logger.log(level: .debug, "message edited")
             await game.turn.endTurn()
-            await App.bot.app.logger.debug("Ход завершен")
+            await App.bot.app.logger.log(level: .debug, "end turn")
         }
     }
 }
