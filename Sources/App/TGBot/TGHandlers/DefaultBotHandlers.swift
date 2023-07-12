@@ -32,7 +32,6 @@ final class HandlerFactory {
                 buttons: buttons,
                 completion: completion
             )
-
         }
     }
     
@@ -103,7 +102,7 @@ final class HandlerFactory {
                 completion: completion
             )
             await game.dice.resumeDice()
-            try await Task.sleep(nanoseconds: 3000000000)
+            try await Task.sleep(nanoseconds: 2000000000)
             try await App.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
             try await App.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
         }

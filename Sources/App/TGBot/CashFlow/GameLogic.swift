@@ -32,7 +32,9 @@ actor Game {
         return board[currentPlayerPosition]
     }
     
-    func reset() {
+    func reset() async {
         currentPlayerPosition = 9
+        await turn.endTurn()
+        await dice.resumeDice()
     }
 }
