@@ -110,6 +110,7 @@ final class HandlerFactory {
     
     static func createEndTurnHandler(game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(pattern: "endTurn") { update, bot in
+            await App.bot.app.logger.debug("end Turn handler")
             guard let chatId = update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd
             else { return }
@@ -118,7 +119,7 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
             ]
             
-            await App.bot.app.logger.log(level: .debug, "try edittion caption")
+            await App.bot.app.logger.debug("try edit")
             try await App.editCaption(
                 chatId: chatId,
                 messageId: update.callbackQuery?.message?.messageId ?? 0,
@@ -126,9 +127,8 @@ final class HandlerFactory {
                 parseMode: nil,
                 newButtons: buttons
             )
-            await App.bot.app.logger.log(level: .debug, "message edited")
+
             await game.turn.endTurn()
-            await App.bot.app.logger.log(level: .debug, "end turn")
         }
     }
 }
