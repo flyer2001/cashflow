@@ -25,6 +25,7 @@ private extension Vapor.Application {
 enum App {
     private static var tgBotConnection = TGBotConnection()
     static let cache = ImageCache()
+    static let logger = ChatBotLogger()
     
     static var bot: TGBot {
         get async {

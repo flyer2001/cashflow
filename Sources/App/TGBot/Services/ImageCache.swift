@@ -6,8 +6,9 @@ actor ImageCache {
         cache[key]
     }
     
-    func setValue(_ value: String, for key: Int) {
+    func setValue(_ value: String, for key: Int) async {
         cache[key] = value
+        await App.logger.log(event: .saveCacheId)
     }
     
     func setImagePath(path: String) {

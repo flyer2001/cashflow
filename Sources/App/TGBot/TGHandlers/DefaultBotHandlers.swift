@@ -2,23 +2,12 @@ import Vapor
 import TelegramVaporBot
 import ChatGPTSwift
 
-enum ChatBotEvent: Equatable {
-    case gameReset // Сброс игры
-    case sendMapFromCache
-    case mapIsDrawing
-    case sendDrawingMap
-    case saveCacheId
-    
-    case message(id: Int) // ID отправленного сообщения, для удаления в тестах
-}
-
 final class HandlerFactory {
     
-    static func createPlayHandler(game: Game, completion: ((ChatBotEvent) -> ())? = nil) -> TGHandlerPrtcl {
+    static func createPlayHandler(game: Game) -> TGHandlerPrtcl {
         TGCommandHandler(name: "playHandler", commands: ["/play"]) { update, bot in
             guard let chatId = update.message?.chat.id else { fatalError("user id not found") }
             await game.reset()
-            completion?(.gameReset)
             
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: "dice")]
@@ -29,8 +18,7 @@ final class HandlerFactory {
                 chatId: chatId,
                 captionText: "Ваш ход",
                 parseMode: nil,
-                buttons: buttons,
-                completion: completion
+                buttons: buttons
             )
         }
     }
@@ -40,23 +28,18 @@ final class HandlerFactory {
         chatId: Int64,
         captionText: String?,
         parseMode: TGParseMode?,
-        buttons: [[TGInlineKeyboardButton]]?,
-        completion: ((ChatBotEvent) -> ())?) async throws {
+        buttons: [[TGInlineKeyboardButton]]?) async throws {
             if let fileId = await App.cache.getValue(for: position) {
                 try await App.sendPhotoFromCache(
                     chatId: chatId,
                     fileId: fileId,
                     captionText: captionText,
                     parseMode: parseMode,
-                    buttons: buttons) { message in
-                        completion?(.message(id: message.messageId))
-                    }
-                completion?(.sendMapFromCache)
+                    buttons: buttons) 
                 return
             }
             
             let outputImageData = try await MapDrawer.drawMap(for: position)
-            completion?(.mapIsDrawing)
             
             try await App.sendPhoto(
                 chatId: chatId,
@@ -67,14 +50,11 @@ final class HandlerFactory {
             ) { message in
                 guard let fileId = message.photo?.first?.fileId else { return }
                 await App.cache.setValue(fileId, for: position)
-                completion?(.saveCacheId)
-                completion?(.message(id: message.messageId))
             }
-            completion?(.sendDrawingMap)
         }
 
 
-    static func createButtonActionHandler(game: Game, completion: ((ChatBotEvent) -> ())? = nil) -> TGHandlerPrtcl {
+    static func createButtonActionHandler(game: Game) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(name: "dice", pattern: "dice") { update, bot in
             guard let chatId = update.callbackQuery?.message?.chat.id,
                   await !game.dice.isBlocked,
@@ -84,6 +64,7 @@ final class HandlerFactory {
             await game.turn.startTurn()
             await game.dice.blockDice()
             let diceMessage = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
+            await App.logger.log(event: .sendDice)
             
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
@@ -98,8 +79,7 @@ final class HandlerFactory {
                 chatId: chatId,
                 captionText: "*Выпало:* \(diceResult) \n\n*Теперь вы находитесь на*: \(targetTitle) \n\n Действуйте или завершите ход",
                 parseMode: .markdownV2,
-                buttons: buttons,
-                completion: completion
+                buttons: buttons
             )
             await game.dice.resumeDice()
             try await Task.sleep(nanoseconds: 2000000000)
@@ -108,7 +88,7 @@ final class HandlerFactory {
         }
     }
     
-    static func createEndTurnHandler(game: Game, completion: ((String) -> ())? = nil) -> TGHandlerPrtcl {
+    static func createEndTurnHandler(game: Game) -> TGHandlerPrtcl {
         TGCallbackQueryHandler(pattern: "endTurn") { update, bot in
             guard let chatId = update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd

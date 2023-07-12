@@ -51,7 +51,7 @@ final class MapDrawer {
         else {
             throw MapDrawerError.swimImageLibraryEncode
         }
-        
+        await App.logger.log(event: .mapIsDrawing)
         return outputImageData
     }
     

@@ -44,13 +44,16 @@ final class AppTests: XCTestCase {
         )
         var events: [ChatBotEvent] = []
         var messageId: Int = 0
-        let handler = HandlerFactory.createPlayHandler(game: Game()) { event in
+        await App.logger.setObserver { event in
             if case .message(let id) = event {
                 messageId = id
             } else {
                 events.append(event)
             }
         }
+            
+        
+        let handler = HandlerFactory.createPlayHandler(game: Game())
         try await Task.sleep(nanoseconds: 2_000_000_000) // нужно подождать, пока прокидает все update сам бот
         try await handler.handle(update: update, bot: App.bot)
         XCTAssertEqual(events, [.gameReset, .mapIsDrawing, .saveCacheId, .sendDrawingMap])

@@ -95,6 +95,8 @@ extension App {
         
         let update = try await App.bot.sendPhoto(params: params)
         await completion?(update)
+        await App.logger.log(event: .sendDrawingMap)
+        await App.logger.log(event: .message(id: update.messageId))
     }
     
     /// Для медиафайлов свой метод редактирования сообщений. Сам медиафайл можно только удалить
@@ -153,6 +155,8 @@ extension App {
             )
         )
         await completion?(update)
+        await App.logger.log(event: .sendMapFromCache)
+        await App.logger.log(event: .message(id: update.messageId))
     }
     
     /// Редактирование только кнопок для взаимодействия с пользователем в сообщении
