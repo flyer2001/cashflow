@@ -26,9 +26,9 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
         tgApiHelper: tgApiHelper,
         handlerFactory: handlerFactory
     )
-
+    
      #if os(Linux)
-    await tgBotApp.setConnection(try await TGWebHookConnection(bot: bot, dispatcher: Dispatcher.self, webHookURL: "https://cashflow-game.ru/telegramWebHook"))
+    await tgBotApp.setConnection(try await TGWebHookConnection(bot: bot, webHookURL: "https://cashflow-game.ru/telegramWebHook", dispatcher: Dispatcher.self))
 
     #elseif os(macOS)
     // LongPolling использовать только для дебага
