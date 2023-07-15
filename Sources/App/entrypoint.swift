@@ -21,30 +21,68 @@ private extension Vapor.Application {
     }
 }
 
-@main
-enum App {
-    private static var tgBotConnection = TGBotConnection()
-    static let cache = ImageCache()
-    static let logger = ChatBotLogger()
+actor App: RouteCollection {
+    let cache: ImageCache
+    let logger: ChatBotLogger
+    let tgApi: TelegramBotAPIHelper
+    lazy var handlerManager = HandlerManager(
+        app: self,
+        handlerFactory: handlerFactory
+    )
     
-    static var bot: TGBot {
+    private let tgBotConnection: TGBotConnection
+    private let handlerFactory: HandlerFactory
+    
+    var bot: TGBot {
         get async {
-            await App.tgBotConnection.connection.bot
+            await tgBotConnection.connection.bot
         }
     }
-    static var dispatcher: TGDispatcherPrtcl {
+    
+    var dispatcher: TGDispatcherPrtcl {
         get async {
-            await App.tgBotConnection.connection.dispatcher
+            await tgBotConnection.connection.dispatcher
         }
+    }
+    
+    init(
+        cache: ImageCache,
+        logger: ChatBotLogger,
+        tgBotConnection: TGBotConnection,
+        tgApiHelper: TelegramBotAPIHelper,
+        handlerFactory: HandlerFactory
+    ) {
+        self.cache = cache
+        self.logger = logger
+        self.tgBotConnection = tgBotConnection
+        self.tgApi = tgApiHelper
+        self.handlerFactory = handlerFactory
+    }
+    
+    // RouteCollection
+    nonisolated func boot(routes: Vapor.RoutesBuilder) throws {
+        routes.post("telegramWebHook", use: telegramWebHook)
+    }
+    
+    private func telegramWebHook(_ req: Request) async throws -> Bool {
+        let update: TGUpdate = try req.content.decode(TGUpdate.self)
+        return try await dispatcher.process([update])
     }
     
     // Настройка бота
-    static func setConnection(_ connection: TGConnectionPrtcl) async {
+    func setConnection(_ connection: TGConnectionPrtcl) async {
         await tgBotConnection.setConnection(connection)
     }
-    static func startConnection() async throws {
+    func startConnection() async throws {
         try await tgBotConnection.connection.start()
     }
+}
+
+// пока не пидумал ничего умнее вот так захватывать ссылку с аппой
+var tgBotApp: App!
+
+@main
+enum Entrypoint {
     
     static func main() async throws {
         var env = try Environment.detect()
@@ -52,10 +90,15 @@ enum App {
         let eventLoop: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount * 4)
         
         let app = Application(env, Application.EventLoopGroupProvider.shared(eventLoop))
-        defer { app.shutdown() }
+        defer {
+            app.shutdown()
+            tgBotApp = nil
+        }
         
         do {
-            try await configure(app)
+            try await configure(app) { tgApp in
+                tgBotApp = tgApp
+            }
         } catch {
             app.logger.report(error: error)
             throw error

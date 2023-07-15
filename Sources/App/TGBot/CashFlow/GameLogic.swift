@@ -36,6 +36,5 @@ actor Game {
         currentPlayerPosition = 9
         await turn.endTurn()
         await dice.resumeDice()
-        await App.logger.log(event: .gameReset)
     }
 }

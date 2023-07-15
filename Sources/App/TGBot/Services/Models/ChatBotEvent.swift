@@ -8,6 +8,7 @@ enum ChatBotEvent: Equatable {
     case captionChanged
     
     case message(id: Int) // ID отправленного сообщения, для удаления в тестах
+    case updateSession(chatId: Int64) //для сброса таймера
 }
 
 extension ChatBotEvent {
@@ -30,6 +31,8 @@ extension ChatBotEvent {
             return "Сохранен кеш карты"
         case .message(let id):
             return "Сообщение с id=\(id) отправлено"
+        case .updateSession(let chatId):
+            return "Таймер сессии чата \(chatId) обновлен"
         }
     }
     

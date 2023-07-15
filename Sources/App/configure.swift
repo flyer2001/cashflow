@@ -2,18 +2,37 @@ import Vapor
 import TelegramVaporBot
 
 // configures your application
-public func configure(_ app: Application) async throws {
-    // uncomment to serve files from /Public folder
-    // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+func configure(_ app: Application, completion: ((App) -> ())? = nil) async throws {
     let tgApi: String = "6173467253:AAEaImjv6mkqSJh3XxmBwQzuoJbyH9Su2Mo"
     TGBot.log.logLevel = app.logger.logLevel
+    let tgBotConnection = TGBotConnection()
     let bot: TGBot = .init(app: app, botId: tgApi)
-    #if os(Linux)
-    await App.setConnection(try await TGWebHookConnection(bot: bot, webHookURL: "https://cashflow-game.ru/telegramWebHook"))
+    let logger = ChatBotLogger(app: app)
+    let imageCache = ImageCache(logger: logger)
+    let mapDrawer = MapDrawer(cache: imageCache, logger: logger)
+    
+    let tgApiHelper = TelegramBotAPIHelper(bot: bot, logger: logger)
+    let handlerFactory = HandlerFactory(
+        cache: imageCache,
+        tgApi: tgApiHelper,
+        logger: logger,
+        mapDrawer: mapDrawer
+    )
+
+    let tgBotApp = App(
+        cache: imageCache,
+        logger: logger,
+        tgBotConnection: tgBotConnection,
+        tgApiHelper: tgApiHelper,
+        handlerFactory: handlerFactory
+    )
+
+     #if os(Linux)
+    await tgBotApp.setConnection(try await TGWebHookConnection(bot: bot, dispatcher: Dispatcher.self, webHookURL: "https://cashflow-game.ru/telegramWebHook"))
 
     #elseif os(macOS)
     // LongPolling использовать только для дебага
-    await App.setConnection(try await TGLongPollingConnection(bot: bot))
+    await tgBotApp.setConnection(try await TGLongPollingConnection(bot: bot, dispatcher: Dispatcher.self))
     #endif
     
     var imagePath = ""
@@ -23,34 +42,13 @@ public func configure(_ app: Application) async throws {
         // Путь для дебага
         imagePath = "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
     #endif
-    await App.cache.setImagePath(path: imagePath)
+    await tgBotApp.cache.setImagePath(path: imagePath)
     
-    await DefaultBotHandlers.addHandlers()
-    try await App.startConnection()
+    try await tgBotApp.startConnection()
+    try await tgBotApp.handlerManager.addDefaultPlayHandler()
     
     #if os(Linux)
-    await App.bot.app.logger.debug("register controller")
-    try routes(app)
+    try app.register(collection: tgBotApp)
     #endif
-}
-
-func routes(_ app: Application) throws {
-    try app.register(collection: TelegramController())
-}
-
-final class TelegramController: RouteCollection {
-    
-    func boot(routes: Vapor.RoutesBuilder) throws {
-        routes.post("telegramWebHook", use: telegramWebHook)
-    }
-}
-
-extension TelegramController {
-    
-    func telegramWebHook(_ req: Request) async throws -> Bool {
-        await App.bot.app.logger.debug("get telegram request")
-        let update: TGUpdate = try req.content.decode(TGUpdate.self)
-        
-        return try await App.dispatcher.process([update])
-    }
+    completion?(tgBotApp)
 }

@@ -1,7 +1,15 @@
 import Foundation
 import TelegramVaporBot
 
-extension App {
+actor TelegramBotAPIHelper {
+    
+    private let bot: TGBot
+    private let logger: ChatBotLogger
+    
+    init(bot: TGBot, logger: ChatBotLogger) {
+        self.bot = bot
+        self.logger = logger
+    }
     
     /// Отправка сообщения
     /// - Parameters:
@@ -10,7 +18,7 @@ extension App {
     ///   - parseMode: тип парсинга
     ///   - inlineButtons: кнопки для взаимодейстивя с пользователем
     ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
-    static func sendMessage(
+    func sendMessage(
         chatId: Int64,
         text: String,
         parseMode: TGParseMode? = nil,
@@ -23,8 +31,7 @@ extension App {
             parseMode: parseMode,
             replyMarkup: TGReplyMarkup(inlineButtons: inlineButtons)
         )
-        
-        let update = try await App.bot.sendMessage(params: params)
+        let update = try await bot.sendMessage(params: params)
         await completion?(update)
     }
     
@@ -32,10 +39,10 @@ extension App {
     /// - Parameters:
     ///   - chatId: id чата в который отправляется сообщение
     ///   - messageId: id сообщения, которое нужно удалить
-    static func deleteMessage(chatId: Int64, messageId: Int) async throws {
+    func deleteMessage(chatId: Int64, messageId: Int) async throws {
         let params = TGDeleteMessageParams(chatId: .chat(chatId), messageId: messageId)
         
-        try await App.bot.deleteMessage(params: params)
+        try await bot.deleteMessage(params: params)
     }
     
     /// Редактирование обычного сообщения
@@ -46,7 +53,7 @@ extension App {
     ///   - parseMode: тип тарсинга
     ///   - newButtons: обновленные кнопки, не послать - затрутся
     ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
-    static func editMessage(
+    func editMessage(
         chatId: Int64,
         messageId: Int,
         newText: String,
@@ -62,7 +69,7 @@ extension App {
             replyMarkup: TGInlineKeyboardMarkup(buttons: newButtons)
         )
         
-        let update = try await App.bot.editMessageText(params: params)
+        let update = try await bot.editMessageText(params: params)
         if case .message(let update) = update {
             await completion?(update)
         }
@@ -76,7 +83,7 @@ extension App {
     ///   - photoData: картинка в сыром виде
     ///   - inlineButtons: кнопки для взаимодействия с контентом
     ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
-    static func sendPhoto(
+    func sendPhoto(
         chatId: Int64,
         captionText: String? = nil,
         parseMode:TGParseMode? = nil,
@@ -93,10 +100,10 @@ extension App {
             replyMarkup: TGReplyMarkup(inlineButtons: inlineButtons)
         )
         
-        let update = try await App.bot.sendPhoto(params: params)
+        let update = try await bot.sendPhoto(params: params)
         await completion?(update)
-        await App.logger.log(event: .sendDrawingMap)
-        await App.logger.log(event: .message(id: update.messageId))
+        await logger.log(event: .sendDrawingMap)
+        await logger.log(event: .message(id: update.messageId))
     }
     
     /// Для медиафайлов свой метод редактирования сообщений. Сам медиафайл можно только удалить
@@ -107,7 +114,7 @@ extension App {
     ///   - parseMode: тип парсинга этой подписи, не прислать - затрется
     ///   - newButtons: новые кнопки, не прислать - затрется
     ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
-    static func editCaption(
+    func editCaption(
         chatId: Int64,
         messageId: Int,
         newCaptionText: String?,
@@ -122,7 +129,7 @@ extension App {
             parseMode: parseMode,
             replyMarkup: TGInlineKeyboardMarkup(buttons: newButtons)
         )
-        let update = try await App.bot.editMessageCaption(params: params)
+        let update = try await bot.editMessageCaption(params: params)
         if case .message(let update) = update {
             await completion?(update)
         }
@@ -136,7 +143,7 @@ extension App {
     ///   - parseMode: тип парсинга подписи
     ///   - buttons: кнопки для взаимодейтсвия с контентом
     ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
-    static func sendPhotoFromCache(
+    func sendPhotoFromCache(
         chatId: Int64,
         fileId: String,
         captionText: String? = nil,
@@ -145,7 +152,7 @@ extension App {
         completion: ((TGMessage) async -> ())? = nil
     ) async throws {
         let photo = TGFileInfo.fileId(fileId)
-        let update = try await App.bot.sendPhoto(
+        let update = try await bot.sendPhoto(
             params: TGSendPhotoParams(
                 chatId: .chat(chatId),
                 photo: photo,
@@ -155,8 +162,8 @@ extension App {
             )
         )
         await completion?(update)
-        await App.logger.log(event: .sendMapFromCache)
-        await App.logger.log(event: .message(id: update.messageId))
+        await logger.log(event: .sendMapFromCache)
+        await logger.log(event: .message(id: update.messageId))
     }
     
     /// Редактирование только кнопок для взаимодействия с пользователем в сообщении
@@ -165,13 +172,13 @@ extension App {
     ///   - messageId: id сообщения
     ///   - newButtons: новые кнопки, не прислать - затрется
     ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
-    static func editInlineButtons(chatId: Int64, messageId: Int, newButtons: [[TGInlineKeyboardButton]]?, completion: ((TGMessage) async -> ())? = nil) async throws {
+    func editInlineButtons(chatId: Int64, messageId: Int, newButtons: [[TGInlineKeyboardButton]]?, completion: ((TGMessage) async -> ())? = nil) async throws {
         let params = TGEditMessageReplyMarkupParams(
             chatId: .chat(chatId),
             messageId: messageId,
             replyMarkup: TGInlineKeyboardMarkup(buttons: newButtons)
         )
-        let update = try await App.bot.editMessageReplyMarkup(params: params)
+        let update = try await bot.editMessageReplyMarkup(params: params)
         if case .message(let update) = update {
             await completion?(update)
         }

@@ -14,9 +14,17 @@ final class MapDrawer {
         static let playerMarkColor = Color<RGBA, UInt8>(r: 255, g: 0, b: 0, a: 255)
     }
     
-    static func drawMap(for playerPosition: Int) async throws -> Data {
+    let cache: ImageCache
+    let logger: ChatBotLogger
+    
+    init(cache: ImageCache, logger: ChatBotLogger) {
+        self.cache = cache
+        self.logger = logger
+    }
+    
+    func drawMap(for playerPosition: Int) async throws -> Data {
         
-        guard let imageData = await FileManager.default.contents(atPath: App.cache.path)
+        guard let imageData = await FileManager.default.contents(atPath: cache.path)
         else {
             throw MapDrawerError.imageFileNotFound
         }
@@ -51,7 +59,7 @@ final class MapDrawer {
         else {
             throw MapDrawerError.swimImageLibraryEncode
         }
-        await App.logger.log(event: .mapIsDrawing)
+        await logger.log(event: .mapIsDrawing)
         return outputImageData
     }
     

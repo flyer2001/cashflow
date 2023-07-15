@@ -5,6 +5,8 @@ import XCTVapor
 
 final class AppTests: XCTestCase {
     
+    private var app: App!
+    
     // chatID захардкожен для тестирования
     // chatID - 566335622 чат лички
     // -806476563 - тестовый чат игры для проверки взаимодействия с группой
@@ -13,9 +15,11 @@ final class AppTests: XCTestCase {
     let fileID = "AgACAgIAAxkDAAIF6GSpjMEcr34AAeQ4ToCeDYpLNio8mgAC7c4xGxrMUUkaEaPxpt35SwEAAwIAA3MAAy8E"
     
     func testHandlers() async throws {
-        let app = Application(.testing)
-        defer { app.shutdown() }
-        try await configure(app)
+        let vaporApp = Application(.testing)
+        defer { vaporApp.shutdown() }
+        try await configure(vaporApp) { [weak self] tgApp in
+            self?.app = tgApp
+        }
 
         try await sendMessage()
         try await editTextAndButtons()
@@ -44,7 +48,7 @@ final class AppTests: XCTestCase {
         )
         var events: [ChatBotEvent] = []
         var messageId: Int = 0
-        await App.logger.setObserver { event in
+        await app.logger.setObserver { event in
             if case .message(let id) = event {
                 messageId = id
             } else {
@@ -53,19 +57,19 @@ final class AppTests: XCTestCase {
         }
             
         
-        let handler = HandlerFactory.createPlayHandler(game: Game())
+        //let handler = HandlerFactory.createPlayHandler(game: Game())
         try await Task.sleep(nanoseconds: 2_000_000_000) // нужно подождать, пока прокидает все update сам бот
-        try await handler.handle(update: update, bot: App.bot)
+        //try await handler.handle(update: update, bot: App.bot)
         XCTAssertEqual(events, [.gameReset, .mapIsDrawing, .saveCacheId, .sendDrawingMap])
         
-        try await App.deleteMessage(chatId: chatId, messageId: messageId)
+        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
         events = []
         
         // Запрашиваем повторный запрос update старта игры, чтобы проверить отправку из кеша
         
-        try await handler.handle(update: update, bot: App.bot)
+        //try await handler.handle(update: update, bot: App.bot)
         XCTAssertEqual(events, [.gameReset, .sendMapFromCache])
-        try await App.deleteMessage(chatId: chatId, messageId: messageId)
+        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
     }
     
     // Проверка отправки сообщения
@@ -77,17 +81,17 @@ final class AppTests: XCTestCase {
             [.init(text: "Кнопка", callbackData: "button")],
         ]
         
-        try await App.sendMessage(
+        try await app.tgApi.sendMessage(
             chatId: chatId,
             text: "*test*",
             parseMode: .markdownV2,
             inlineButtons: buttons
-        ) { message in
+        ) { [weak self] message in
             XCTAssertEqual(message.text, "test")
             XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
             XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
             
-            try? await App.deleteMessage(chatId: chatId, messageId: message.messageId)
+            try? await self?.app.tgApi.deleteMessage(chatId: chatId, messageId: message.messageId)
         }
     }
     
@@ -104,22 +108,22 @@ final class AppTests: XCTestCase {
         let expectation = self.expectation(description: "Редактирование прошло успешно")
 
         
-        let completion: ((TGMessage) async -> ()) = { result in
+        let completion: ((TGMessage) async -> ()) = { [weak self] result in
             expectation.fulfill()
             XCTAssertEqual(result.text, "textWithot markdown")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Другая Кнопка")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "newButton")
-            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await self?.app.tgApi.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await App.sendMessage(
+        try await app.tgApi.sendMessage(
             chatId: chatId,
             text: "*test*",
             parseMode: .markdownV2,
             inlineButtons: buttons
-        ) { message in
+        ) { [weak self] message in
             
-            try? await App.editMessage(
+            try? await self?.app.tgApi.editMessage(
                 chatId: chatId,
                 messageId: message.messageId,
                 newText: "textWithot markdown",
@@ -141,26 +145,26 @@ final class AppTests: XCTestCase {
         
         let imageData = try XCTUnwrap(FileManager.default.contents(atPath: "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"))
         
-        let editInlineButtonCompletion: ((TGMessage) async -> ())? = { result in
+        let editInlineButtonCompletion: ((TGMessage) async -> ())? = { [weak self] result in
             expectation.fulfill()
             XCTAssertEqual(result.caption, "caption text")
             XCTAssertNil(result.replyMarkup)
             
-            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await self?.app.tgApi.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await App.sendPhoto(
+        try await app.tgApi.sendPhoto(
             chatId: chatId,
             captionText: "*caption* text",
             parseMode: .markdownV2,
             photoData: imageData,
-            inlineButtons: buttons) { message in
+            inlineButtons: buttons) { [weak self] message in
                 XCTAssertEqual(message.caption, "caption text")
                 XCTAssertNotNil(message.photo)
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
                 
-                try? await App.editInlineButtons(
+                try? await self?.app.tgApi.editInlineButtons(
                     chatId: chatId, messageId:
                         message.messageId,
                     newButtons: nil,
@@ -184,26 +188,26 @@ final class AppTests: XCTestCase {
         let expectation = self.expectation(description: "Редактирование прошло успешно")
         
         
-        let editCaptionCompletion: ((TGMessage) async -> ())? = { result in
+        let editCaptionCompletion: ((TGMessage) async -> ())? = { [weak self] result in
             expectation.fulfill()
             XCTAssertNil(result.caption)
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка1")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button1")
             
-            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await self?.app.tgApi.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await App.sendPhotoFromCache(
+        try await app.tgApi.sendPhotoFromCache(
             chatId: chatId,
             fileId: fileID,
             captionText: "caption text without parsing",
-            buttons: buttons) { message in
+            buttons: buttons) { [weak self] message in
                 XCTAssertEqual(message.caption, "caption text without parsing")
                 XCTAssertNotNil(message.photo)
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка")
                 XCTAssertEqual(message.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button")
                 
-                try? await App.editCaption(
+                try? await self?.app.tgApi.editCaption(
                     chatId: chatId,
                     messageId: message.messageId,
                     newCaptionText: nil,
@@ -228,28 +232,27 @@ final class AppTests: XCTestCase {
         ]
         
         let expectation = self.expectation(description: "Редактирование прошло успешно")
-        let editKeyboardCompletion: ((TGMessage) async -> ())? = { result in
+        let editKeyboardCompletion: ((TGMessage) async -> ())? = { [weak self] result in
             expectation.fulfill()
             XCTAssertNil(result.caption)
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Кнопка1")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "button1")
             
-            try? await App.deleteMessage(chatId: chatId, messageId: result.messageId)
+            try? await self?.app.tgApi.deleteMessage(chatId: chatId, messageId: result.messageId)
         }
         
-        try await App.sendMessage(
+        try await app.tgApi.sendMessage(
             chatId: chatId,
             text: "*test*",
             parseMode: .markdownV2,
             inlineButtons: buttons
-        ) { message in
-            try? await App.editInlineButtons(
+        ) { [weak self] message in
+            try? await self?.app.tgApi.editInlineButtons(
                 chatId: chatId,
                 messageId: message.messageId,
                 newButtons: newButtons,
                 completion: editKeyboardCompletion
             )
-            
         }
         
         await waitForExpectations(timeout: 1, handler: nil)
