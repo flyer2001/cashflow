@@ -32,7 +32,7 @@ final class HandlerFactory {
         self.mapDrawer = mapDrawer
     }
 
-    func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64) async -> ()) throws -> TGHandlerPrtcl {
+    func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ messageId: Int) async -> ()) throws -> TGHandlerPrtcl {
         TGCommandHandler(
             name: Handler.playHandler.rawValue,
             commands: ["/play"]
@@ -57,9 +57,9 @@ final class HandlerFactory {
                 text: "Приветствуем\\! Это игра *Cashflow*\\. Нажмите одну из кнопок ниже",
                 parseMode: .markdownV2,
                 inlineButtons: buttons
-            )
-            
-            await startGameCompletion(chatId) 
+            ) { message in
+                await startGameCompletion(chatId, message.messageId)
+            }
         }
     }
     
@@ -113,7 +113,7 @@ final class HandlerFactory {
         }
     }
 
-    func createRollDiceHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
+    func createRollDiceHandler(chatId: Int64, game: Game, completion: (() async -> ())? = nil) -> TGHandlerPrtcl {
         let callbackName = Handler.rollDiceCallback.rawValue + "_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
             guard chatId == update.callbackQuery?.message?.chat.id,
@@ -143,8 +143,10 @@ final class HandlerFactory {
             )
             await game.dice.resumeDice()
             try await Task.sleep(nanoseconds: 2000000000)
+            // TODO тут какая то фигня происходит, не удаляется бросок кубика
             try await self?.tgApi.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
             try await self?.tgApi.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
+            await completion?()
         }
     }
     

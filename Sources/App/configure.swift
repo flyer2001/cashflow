@@ -3,8 +3,15 @@ import TelegramVaporBot
 
 // configures your application
 func configure(_ app: Application, completion: ((App) -> ())? = nil) async throws {
-    let tgApi: String = "6173467253:AAEaImjv6mkqSJh3XxmBwQzuoJbyH9Su2Mo"
     TGBot.log.logLevel = app.logger.logLevel
+    let tgApi: String = "6173467253:AAEaImjv6mkqSJh3XxmBwQzuoJbyH9Su2Mo"
+    #if os(Linux)
+    let apiKey = Environment.get("API_KEY")
+    app.logger.log(level: .debug, "api key is \(apiKey)")
+    #elseif os(macOS)
+    let apikey = ProcessInfo.processInfo.environment["TGAPI_KEY"]
+    print(apikey)
+    #endif
     let tgBotConnection = TGBotConnection()
     let bot: TGBot = .init(app: app, botId: tgApi)
     let logger = ChatBotLogger(app: app)

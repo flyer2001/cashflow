@@ -51,7 +51,7 @@ final class AppTests: XCTestCase {
     }
     
     // Обработчик команды /play - вызов меню
-    // Нужен отдельный тест на activeHandlers + session с завершением соссии
+    // Нужен отдельный тест на activeHandlers + session с завершением сессии
     func testPlayCommandHandler() async throws {
         // имитируем отправку сообщения пользователем
         let update = TGUpdate(
