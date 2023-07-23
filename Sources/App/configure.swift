@@ -67,6 +67,7 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     try await tgBotApp.startConnection()
     
     if app.environment != .testing  {
+        app.logger.log(level: .critical, "Основные обработчики добавлены")
         try await tgBotApp.handlerManager.addDefaultPlayHandler()
     }
     
