@@ -1,22 +1,24 @@
 enum ChatBotEvent: Equatable {
-    case gameReset // Сброс игры
+
+    case startGameMenuSent
     case sendDice
     case sendMapFromCache
     case mapIsDrawing
     case sendDrawingMap
     case saveCacheId
     case captionChanged
+    case updateSession(chatId: Int64)
+    case stopSession(chatId: Int64)
     
     case message(id: Int) // ID отправленного сообщения, для удаления в тестах
-    case updateSession(chatId: Int64) //для сброса таймера
 }
 
 extension ChatBotEvent {
     
     var description: String {
         switch self {
-        case .gameReset:
-            return "Сброс игры"
+        case .startGameMenuSent:
+            return "Приветственное меню отправлено"
         case .sendDice:
             return "Кубики брошены"
         case .captionChanged:
@@ -33,6 +35,8 @@ extension ChatBotEvent {
             return "Сообщение с id=\(id) отправлено"
         case .updateSession(let chatId):
             return "Таймер сессии чата \(chatId) обновлен"
+        case .stopSession(let chatId):
+            return "Сессия для чата \(chatId) остановлена"
         }
     }
     

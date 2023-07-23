@@ -13,9 +13,9 @@ actor HandlerManager {
     }
     
     private let app: App
-    private let handlerFactory: HandlerFactory
-    private var activeHandlers: [Int64 : [TGHandlerPrtcl]] = [:]
-    private var activeSessions: [Int64: Task<(), Error>] = [:]
+    private(set) var handlerFactory: HandlerFactory
+    private(set) var activeHandlers: [Int64 : [TGHandlerPrtcl]] = [:]
+    private(set) var activeSessions: [Int64: Task<(), Error>] = [:]
     
     init(app: App, handlerFactory: HandlerFactory) {
         self.app = app
@@ -47,7 +47,7 @@ actor HandlerManager {
     }
     
     func addDefaultPlayHandler() async throws {
-        let defaultHandler = try handlerFactory.createDefaultPlayHandler { [weak self] newGameChatId in
+        let defaultHandler = try handlerFactory.createDefaultPlayHandler { [weak self] newGameChatId, _ in
             await self?.createNewGameHandlers(for: newGameChatId)
         }
         await app.dispatcher.add(defaultHandler)
@@ -56,14 +56,14 @@ actor HandlerManager {
         await startHandler()
     }
     
-    func createNewGameHandlers(for chatId: Int64) async {
+    private func createNewGameHandlers(for chatId: Int64) async {
         let newGame = Game()
         await add(handler: handlerFactory.createNewGameHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createRollDiceHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createEndTurnHandler(chatId: chatId, game: newGame), for: chatId)
     }
     
-    func observeSessionActivity() async {
+    private func observeSessionActivity() async {
         await app.dispatcher.addBeforeAllCallback { [weak self] update in
             guard let update = update.first else { return true }
             let chatId = update.message?.chat.id ?? update.callbackQuery?.message?.chat.id
@@ -84,6 +84,7 @@ actor HandlerManager {
             try await Task.sleep(nanoseconds: Const.minutesToEndSession * 60 * 1000 * 1000 * 1000)
             try await endSession(for: sessionChatId)
         }
+        await app.logger.log(event: .updateSession(chatId: sessionChatId))
         activeSessions[sessionChatId] = task
     }
     
@@ -94,10 +95,10 @@ actor HandlerManager {
         activeSessions[chatId] = nil
         try await removeAllHandlers(for: chatId)
         try await app.tgApi.sendMessage(chatId: chatId, text: "Сессия прекращена. Наберите снова /play чтобы начать игру заново или возобновить игру")
+        await app.logger.log(event: .stopSession(chatId: chatId))
     }
     
     // Ниже поддержка чат бота
-    
     private func startHandler() async {
         await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { [weak self] update, bot in
             guard let message = update.message else { return }
@@ -125,7 +126,7 @@ actor HandlerManager {
                     await state.isDialog,
                     let textFromUser = update.message?.text
                 else { return }
-                let api = ChatGPTAPI(apiKey: "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")
+                let api = ChatGPTAPI(apiKey: "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")
                 let gptAnswer = try await api.sendMessage(
                     text: textFromUser
                 )

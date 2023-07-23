@@ -5,7 +5,10 @@ import XCTVapor
 
 final class AppTests: XCTestCase {
     
+    private var vaporApp: Application!
     private var app: App!
+    private var events: [ChatBotEvent] = []
+    var messageId: Int = 0
     
     // chatID захардкожен для тестирования
     // chatID - 566335622 чат лички
@@ -14,24 +17,42 @@ final class AppTests: XCTestCase {
     // id файла, который уже был загружен через апи
     let fileID = "AgACAgIAAxkDAAIF6GSpjMEcr34AAeQ4ToCeDYpLNio8mgAC7c4xGxrMUUkaEaPxpt35SwEAAwIAA3MAAy8E"
     
-    func testHandlers() async throws {
-        let vaporApp = Application(.testing)
-        defer { vaporApp.shutdown() }
+    override func setUp() async throws {
+        vaporApp = Application(.testing)
         try await configure(vaporApp) { [weak self] tgApp in
             self?.app = tgApp
         }
-
+        messageId = 0
+        events = []
+        await app.logger.setObserver { [weak self] event in
+            if case .message(let id) = event {
+                // сохраняем id сообщения для теста, чтобы удалить его из чата
+                self?.messageId = id
+            } else {
+                self?.events.append(event)
+            }
+        }
+        // нужно подождать, пока прокидает все update сам бот
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+    }
+    
+    override func tearDown() async throws {
+        vaporApp.shutdown()
+        vaporApp = nil
+        app = nil
+    }
+    
+    func testTgApiMethods() async throws {
         try await sendMessage()
         try await editTextAndButtons()
         try await sendPhotoWithInlineButtonsAndRemoveButtons()
         try await sendPhotoFromCacheWithCaptionAndRemoveCaption()
         try await sendMessageAndEditKeyboardOnly()
-        try await playHandlerTest()
-        
     }
     
-    // Обработчик команды /play
-    private func playHandlerTest() async throws {
+    // Обработчик команды /play - вызов меню
+    // Нужен отдельный тест на activeHandlers + session с завершением соссии
+    func testPlayCommandHandler() async throws {
         // имитируем отправку сообщения пользователем
         let update = TGUpdate(
             updateId: 12345,
@@ -46,30 +67,89 @@ final class AppTests: XCTestCase {
                 entities: [TGMessageEntity(type: .botCommand, offset: 0, length: 5)]
             )
         )
-        var events: [ChatBotEvent] = []
-        var messageId: Int = 0
-        await app.logger.setObserver { event in
-            if case .message(let id) = event {
-                messageId = id
-            } else {
-                events.append(event)
-            }
+        let expectation = XCTestExpectation(description: "Ожидание получения chatID начала сессии")
+        
+        let handler = try await app.handlerManager.handlerFactory.createDefaultPlayHandler { [weak self] startGameChatId, messageId in
+            expectation.fulfill()
+            self?.messageId = messageId
+            XCTAssertEqual(startGameChatId, self?.chatId)
         }
+        XCTAssertEqual(handler.name, HandlerFactory.Handler.playHandler.rawValue)
+        
+        try await handler.handle(update: update, bot: app.bot)
+        
+        XCTAssertEqual(events, [.startGameMenuSent])
+        wait(for: [expectation], timeout: 1.0)
+        
+        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
+    }
+    
+    // Обработчик callback Новая игра после нажатия кнопки
+    func testNewGameCallbackHandler() async throws {
+        // имитируем нажати кнопки
+        let update = TGUpdate(
+            updateId: 12345,
+            callbackQuery: TGCallbackQuery(
+                id: "1234",
+                from: TGUser(id: chatId, isBot: false, firstName: "isTest"),
+                message: TGMessage(
+                    messageId: 1234,
+                    date: 0,
+                    chat: TGChat(
+                        id: chatId,
+                        type: .group
+                    ),
+                    text: "/play",
+                    entities: [TGMessageEntity(type: .botCommand, offset: 0, length: 5)]
+
+                ),
+                chatInstance: "123",
+                data: HandlerFactory.Handler.newGameCallback.rawValue + "_\(chatId)"
+            )
+        )
+        
+        let handler = await app.handlerManager.handlerFactory.createNewGameHandler(chatId: chatId, game: Game())
+        XCTAssertEqual(handler.name, HandlerFactory.Handler.newGameCallback.rawValue + "_\(chatId)")
+        try await handler.handle(update: update, bot: app.bot)
+        XCTAssertEqual(events, [.mapIsDrawing, .saveCacheId, .sendDrawingMap])
+        
+        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
+    }
+    
+    // Обработчик callback Бросить кубик
+    // Добавить сюда орбаботчик конца хода, сразу два хэндлера д
+    func testRollDiceCallbackHandler() async throws {
+        // имитируем нажати кнопки
+        let update = TGUpdate(
+            updateId: 12345,
+            callbackQuery: TGCallbackQuery(
+                id: "1234",
+                from: TGUser(id: chatId, isBot: false, firstName: "isTest"),
+                message: TGMessage(
+                    messageId: 0,
+                    date: 0,
+                    chat: TGChat(
+                        id: chatId,
+                        type: .group
+                    ),
+                    text: "/play",
+                    entities: [TGMessageEntity(type: .botCommand, offset: 0, length: 5)]
+
+                ),
+                chatInstance: "123",
+                data: HandlerFactory.Handler.rollDiceCallback.rawValue + "_\(chatId)"
+            )
+        )
+        
+        let handler = await app.handlerManager.handlerFactory.createRollDiceHandler(chatId: chatId, game: Game()) { [weak self] in
+            guard let self = self else { return }
+            // Тут ждем пока бросят кубик, и изменится оправленное сообщение
             
-        
-        //let handler = HandlerFactory.createPlayHandler(game: Game())
-        try await Task.sleep(nanoseconds: 2_000_000_000) // нужно подождать, пока прокидает все update сам бот
-        //try await handler.handle(update: update, bot: App.bot)
-        XCTAssertEqual(events, [.gameReset, .mapIsDrawing, .saveCacheId, .sendDrawingMap])
-        
-        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
-        events = []
-        
-        // Запрашиваем повторный запрос update старта игры, чтобы проверить отправку из кеша
-        
-        //try await handler.handle(update: update, bot: App.bot)
-        XCTAssertEqual(events, [.gameReset, .sendMapFromCache])
-        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
+            XCTAssertEqual(self.events, [.sendDice, .mapIsDrawing, .saveCacheId, .sendDrawingMap])
+            try? await self.app.tgApi.deleteMessage(chatId: self.chatId, messageId: self.messageId)
+        }
+        XCTAssertEqual(handler.name, HandlerFactory.Handler.rollDiceCallback.rawValue + "_\(chatId)")
+        try await handler.handle(update: update, bot: app.bot)
     }
     
     // Проверка отправки сообщения
@@ -110,7 +190,7 @@ final class AppTests: XCTestCase {
         
         let completion: ((TGMessage) async -> ()) = { [weak self] result in
             expectation.fulfill()
-            XCTAssertEqual(result.text, "textWithot markdown")
+            XCTAssertEqual(result.text, "textWithout markdown")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.text, "Другая Кнопка")
             XCTAssertEqual(result.replyMarkup?.inlineKeyboard.first?.first?.callbackData, "newButton")
             try? await self?.app.tgApi.deleteMessage(chatId: chatId, messageId: result.messageId)
@@ -126,7 +206,7 @@ final class AppTests: XCTestCase {
             try? await self?.app.tgApi.editMessage(
                 chatId: chatId,
                 messageId: message.messageId,
-                newText: "textWithot markdown",
+                newText: "textWithout markdown",
                 newButtons: newButtons,
                 completion: completion
             )

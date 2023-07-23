@@ -45,7 +45,10 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     await tgBotApp.cache.setImagePath(path: imagePath)
     
     try await tgBotApp.startConnection()
-    try await tgBotApp.handlerManager.addDefaultPlayHandler()
+    
+    if app.environment == .development {
+        try await tgBotApp.handlerManager.addDefaultPlayHandler()
+    }
     
     #if os(Linux)
     try app.register(collection: tgBotApp)
