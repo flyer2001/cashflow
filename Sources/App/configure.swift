@@ -4,14 +4,27 @@ import TelegramVaporBot
 // configures your application
 func configure(_ app: Application, completion: ((App) -> ())? = nil) async throws {
     TGBot.log.logLevel = app.logger.logLevel
-    let tgApi: String = "6173467253:AAEaImjv6mkqSJh3XxmBwQzuoJbyH9Su2Mo"
+    
+    // TODO - сервис припилить который получает ключи
+    // Получаем ключ бота
+    var tgApi: String = ""
     #if os(Linux)
-    let apiKey = Environment.get("API_KEY")
-    app.logger.log(level: .debug, "api key is \(apiKey)")
+    // файлик .env.development на хостинге
+    if let keyApi = Environment.get("TG_API_KEY") {
+        tgApi = keyApi
+    } else {
+        app.logger.log(level: .critical, "Ключ не получен")
+    }
     #elseif os(macOS)
-    let apikey = ProcessInfo.processInfo.environment["TGAPI_KEY"]
-    print(apikey)
+    // Переменные окружения прямо в XCode
+    // Внимание для дебага и прода используются разные ключи и соотвественно боты
+    if let keyApi = ProcessInfo.processInfo.environment["TG_API_KEY"] {
+        tgApi = keyApi
+    } else {
+        app.logger.log(level: .critical, "Ключ не получен")
+    }
     #endif
+    
     let tgBotConnection = TGBotConnection()
     let bot: TGBot = .init(app: app, botId: tgApi)
     let logger = ChatBotLogger(app: app)

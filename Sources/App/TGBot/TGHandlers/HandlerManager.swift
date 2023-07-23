@@ -126,7 +126,23 @@ actor HandlerManager {
                     await state.isDialog,
                     let textFromUser = update.message?.text
                 else { return }
-                let api = ChatGPTAPI(apiKey: "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")
+                
+                var apiKey: String = ""
+                #if os(Linux)
+                if let keyApi = Environment.get("CHATPGPT_API_KEY") {
+                    apiKey = keyApi
+                } else {
+                    await self?.app.bot.app.logger.log(level: .critical, "Ключ chatgpt не получен")
+                }
+                #elseif os(macOS)
+                if let keyApi = ProcessInfo.processInfo.environment["CHATPGPT_API_KEY"] {
+                    apiKey = keyApi
+                } else {
+                    await self?.app.bot.app.logger.log(level: .critical, "Ключ chatgpt не получен")
+                }
+                #endif
+                
+                let api = ChatGPTAPI(apiKey: apiKey)
                 let gptAnswer = try await api.sendMessage(
                     text: textFromUser
                 )
