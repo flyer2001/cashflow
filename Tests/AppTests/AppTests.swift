@@ -11,9 +11,8 @@ final class AppTests: XCTestCase {
     var messageId: Int = 0
     
     // chatID захардкожен для тестирования
-    // chatID - 566335622 чат лички
-    // -806476563 - тестовый чат игры для проверки взаимодействия с группой
-    let chatId: Int64 = -806476563
+    // -945446486 - тестовый чат игры для проверки взаимодействия с группой
+    let chatId: Int64 = -945446486
     // id файла, который уже был загружен через апи
     let fileID = "AgACAgIAAxkDAAIF6GSpjMEcr34AAeQ4ToCeDYpLNio8mgAC7c4xGxrMUUkaEaPxpt35SwEAAwIAA3MAAy8E"
     
@@ -116,8 +115,6 @@ final class AppTests: XCTestCase {
         try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
     }
     
-    // Обработчик callback Бросить кубик
-    // Добавить сюда орбаботчик конца хода, сразу два хэндлера д
     func testRollDiceCallbackHandler() async throws {
         // имитируем нажати кнопки
         let update = TGUpdate(
@@ -150,6 +147,58 @@ final class AppTests: XCTestCase {
         }
         XCTAssertEqual(handler.name, HandlerFactory.Handler.rollDiceCallback.rawValue + "_\(chatId)")
         try await handler.handle(update: update, bot: app.bot)
+    }
+    
+    func testEndGameCallbackHandler() async throws {
+        let chatId = chatId
+        let fileID = fileID
+
+        let game = Game()
+        await game.turn.startTurn()
+        
+        let buttons: [[TGInlineKeyboardButton]] = [
+            [.init(text: "Кнопка", callbackData: "button")],
+        ]
+        let expectation = self.expectation(description: "Хэндлер отработал")
+        
+        let handlerCompletion = {
+            [weak self] in
+            guard let self = self else { return }
+            expectation.fulfill()
+            XCTAssertEqual(self.events, [.endTurn])
+        }
+        
+        try await app.tgApi.sendPhotoFromCache(
+            chatId: chatId,
+            fileId: fileID,
+            captionText: "caption text without parsing",
+            buttons: buttons) { message in
+                let update = TGUpdate(
+                    updateId: 1234,
+                    callbackQuery: TGCallbackQuery(
+                        id: "1234",
+                        from: TGUser(id: chatId, isBot: false, firstName: "isTest"),
+                        message: TGMessage(
+                            messageId: message.messageId,
+                            date: 0,
+                            chat: TGChat(
+                                id: chatId,
+                                type: .group
+                            ),
+                            text: "/play",
+                            entities: [TGMessageEntity(type: .botCommand, offset: 0, length: 5)]
+                        ),
+                        chatInstance: "123",
+                        data: HandlerFactory.Handler.endTurnCallback.rawValue + "_\(chatId)"
+                    )
+                )
+                
+                let handler = await self.app.handlerManager.handlerFactory.createEndTurnHandler(chatId: chatId, game: game, completion: handlerCompletion)
+                XCTAssertEqual(handler.name, HandlerFactory.Handler.endTurnCallback.rawValue + "_\(chatId)")
+                try? await handler.handle(update: update, bot: self.app.bot)
+            }
+        await waitForExpectations(timeout: 1, handler: nil)
+        try? await self.app.tgApi.deleteMessage(chatId: self.chatId, messageId: self.messageId)
     }
     
     // Проверка отправки сообщения

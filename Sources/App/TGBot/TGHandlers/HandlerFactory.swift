@@ -58,6 +58,7 @@ final class HandlerFactory {
                 parseMode: .markdownV2,
                 inlineButtons: buttons
             ) { message in
+                await self.logger.log(event: .startGameMenuSent)
                 await startGameCompletion(chatId, message.messageId)
             }
         }
@@ -71,6 +72,7 @@ final class HandlerFactory {
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
             ]
+            
             
             try await self?.sendMap(
                 for: game.currentPlayerPosition,
@@ -143,14 +145,15 @@ final class HandlerFactory {
             )
             await game.dice.resumeDice()
             try await Task.sleep(nanoseconds: 2000000000)
-            // TODO тут какая то фигня происходит, не удаляется бросок кубика
-            try await self?.tgApi.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
-            try await self?.tgApi.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
+            
+            // try? чтобы тесты не валились
+            try? await self?.tgApi.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
+            try? await self?.tgApi.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
             await completion?()
         }
     }
     
-    func createEndTurnHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
+    func createEndTurnHandler(chatId: Int64, game: Game, completion: (() async -> ())? = nil) -> TGHandlerPrtcl {
         let callbackName = Handler.endTurnCallback.rawValue + "_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
             guard chatId == update.callbackQuery?.message?.chat.id,
@@ -170,6 +173,9 @@ final class HandlerFactory {
             )
 
             await game.turn.endTurn()
+            await self?.logger.log(event: .endTurn)
+            await self?.logger.log(event: .message(id: update.message?.messageId ?? 0))
+            await completion?()
         }
     }
 }

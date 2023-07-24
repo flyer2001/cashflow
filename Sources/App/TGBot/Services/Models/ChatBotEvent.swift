@@ -6,6 +6,7 @@ enum ChatBotEvent: Equatable {
     case mapIsDrawing
     case sendDrawingMap
     case saveCacheId
+    case endTurn
     case captionChanged
     case updateSession(chatId: Int64)
     case stopSession(chatId: Int64)
@@ -31,6 +32,8 @@ extension ChatBotEvent {
             return "Отрисованая карта отправлена"
         case .saveCacheId:
             return "Сохранен кеш карты"
+        case .endTurn:
+            return "Ход окончен"
         case .message(let id):
             return "Сообщение с id=\(id) отправлено"
         case .updateSession(let chatId):
