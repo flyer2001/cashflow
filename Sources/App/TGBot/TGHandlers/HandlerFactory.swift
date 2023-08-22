@@ -72,7 +72,7 @@ final class HandlerFactory {
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
             ]
-            
+            try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Создаю новую игру")
             
             try await self?.sendMap(
                 for: game.currentPlayerPosition,
@@ -123,6 +123,8 @@ final class HandlerFactory {
                   await game.turn.isTurnEnd
             else { return }
             
+            try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Бросаю кубик")
+            
             await game.turn.startTurn()
             await game.dice.blockDice()
             let diceMessage = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
@@ -159,6 +161,8 @@ final class HandlerFactory {
             guard chatId == update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd
             else { return }
+            
+            try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Завершаю ход")
             
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
