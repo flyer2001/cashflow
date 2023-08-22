@@ -11,8 +11,8 @@ final class AppTests: XCTestCase {
     var messageId: Int = 0
     
     // chatID захардкожен для тестирования
-    // -945446486 - тестовый чат игры для проверки взаимодействия с группой
-    let chatId: Int64 = -945446486
+    // -984387887 - тестовый чат игры для проверки взаимодействия с группой
+    let chatId: Int64 = -984387887
     // id файла, который уже был загружен через апи
     let fileID = "AgACAgIAAxkDAAIF6GSpjMEcr34AAeQ4ToCeDYpLNio8mgAC7c4xGxrMUUkaEaPxpt35SwEAAwIAA3MAAy8E"
     

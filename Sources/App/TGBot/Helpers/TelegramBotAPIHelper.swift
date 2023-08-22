@@ -183,4 +183,13 @@ actor TelegramBotAPIHelper {
             await completion?(update)
         }
     }
+    
+    /// Отправка уведомления успешной обработки нажатия кнопки
+    /// - Parameters:
+    ///   - callbackId: id для callbackQuery
+    ///   - message: сообщение, которое будет отправлено пользователю
+    func sendCallbackAnswer(callbackId: String, _ message: String) async throws {
+        let params = TGAnswerCallbackQueryParams(callbackQueryId: callbackId, text: message)
+        try await bot.answerCallbackQuery(params: params)
+    }
 }
