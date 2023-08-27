@@ -1,6 +1,8 @@
 enum ChatBotEvent: Equatable {
 
     case startGameMenuSent
+    case addPlayersMenuSent
+    case joinToGame
     case sendDice
     case sendMapFromCache
     case mapIsDrawing
@@ -20,6 +22,10 @@ extension ChatBotEvent {
         switch self {
         case .startGameMenuSent:
             return "Приветственное меню отправлено"
+        case .addPlayersMenuSent:
+            return "Отправлено меню добавления игроков"
+        case .joinToGame:
+            return "Игрок присоединился к игре"
         case .sendDice:
             return "Кубики брошены"
         case .captionChanged:
