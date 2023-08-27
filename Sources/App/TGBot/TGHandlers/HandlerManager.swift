@@ -58,7 +58,9 @@ actor HandlerManager {
     
     private func createNewGameHandlers(for chatId: Int64) async {
         let newGame = Game()
-        await add(handler: handlerFactory.createNewGameHandler(chatId: chatId, game: newGame), for: chatId)
+        await add(handler: handlerFactory.addPlayerMenuHandler(chatId: chatId, game: newGame), for: chatId)
+        await add(handler: handlerFactory.joinToGameHandler(chatId: chatId, game: newGame), for: chatId)
+        await add(handler: handlerFactory.startNewGameHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createRollDiceHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createEndTurnHandler(chatId: chatId, game: newGame), for: chatId)
     }

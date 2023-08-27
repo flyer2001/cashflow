@@ -84,7 +84,7 @@ final class AppTests: XCTestCase {
     }
     
     // Обработчик callback Новая игра после нажатия кнопки
-    func testNewGameCallbackHandler() async throws {
+    func testAddPlayerMenuCallbackHandler() async throws {
         // имитируем нажати кнопки
         let update = TGUpdate(
             updateId: 12345,
@@ -103,14 +103,15 @@ final class AppTests: XCTestCase {
 
                 ),
                 chatInstance: "123",
-                data: HandlerFactory.Handler.newGameCallback.rawValue + "_\(chatId)"
+                data: HandlerFactory.Handler.startGameCallback.rawValue + "_\(chatId)"
             )
         )
-        
-        let handler = await app.handlerManager.handlerFactory.createNewGameHandler(chatId: chatId, game: Game())
-        XCTAssertEqual(handler.name, HandlerFactory.Handler.newGameCallback.rawValue + "_\(chatId)")
+        let game = Game()
+        await game.addPlayer(0, name: "john")
+        let handler = await app.handlerManager.handlerFactory.addPlayerMenuHandler(chatId: chatId, game: game)
+        XCTAssertEqual(handler.name, HandlerFactory.Handler.addPlayerMenuCallback.rawValue + "_\(chatId)")
         try await handler.handle(update: update, bot: app.bot)
-        XCTAssertEqual(events, [.mapIsDrawing, .saveCacheId, .sendDrawingMap])
+        XCTAssertEqual(events, [.addPlayersMenuSent])
         
         try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
     }
@@ -137,8 +138,9 @@ final class AppTests: XCTestCase {
                 data: HandlerFactory.Handler.rollDiceCallback.rawValue + "_\(chatId)"
             )
         )
-        
-        let handler = await app.handlerManager.handlerFactory.createRollDiceHandler(chatId: chatId, game: Game()) { [weak self] in
+        let game = Game()
+        await game.addPlayer(0, name: "john")
+        let handler = await app.handlerManager.handlerFactory.createRollDiceHandler(chatId: chatId, game: game) { [weak self] in
             guard let self = self else { return }
             // Тут ждем пока бросят кубик, и изменится оправленное сообщение
             
@@ -154,6 +156,7 @@ final class AppTests: XCTestCase {
         let fileID = fileID
 
         let game = Game()
+        await game.addPlayer(0, name: "john")
         await game.turn.startTurn()
         
         let buttons: [[TGInlineKeyboardButton]] = [
