@@ -105,6 +105,7 @@ final class HandlerFactory {
                 text: "\(name) добавлен в игру"
             ) { message in
                 await self?.logger.log(event: .joinToGame)
+                await self?.logger.log(event: .message(id: message.messageId))
             }
         }
     }
@@ -112,8 +113,13 @@ final class HandlerFactory {
     func startNewGameHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
         let callbackName = "\(Handler.startGameCallback.rawValue)_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
-            guard chatId == update.callbackQuery?.message?.chat.id else { return }
+            try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Создаю новую игру")
+            guard chatId == update.callbackQuery?.message?.chat.id,
+                  await !(game.currentPlayer == nil),
+                  let adminId = update.callbackQuery?.from.id
+            else { return }
             
+            await game.setAdmin(id: adminId)
             if await game.players.count > 1  {
                 try await game.shuffle()
             }
@@ -122,7 +128,7 @@ final class HandlerFactory {
             let buttons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
             ]
-            try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Создаю новую игру")
+            
             
             try await self?.sendMap(
                 for: game.currentPlayer.position,
@@ -169,7 +175,7 @@ final class HandlerFactory {
         let callbackName = Handler.rollDiceCallback.rawValue + "_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
             let currentPlayerId = await game.currentPlayer.id
-            let isAdmin = await currentPlayerId == game.adminId
+            let isAdmin = await update.callbackQuery?.from.id == game.adminId
             
             guard chatId == update.callbackQuery?.message?.chat.id,
                   await !game.dice.isBlocked,
@@ -212,7 +218,7 @@ final class HandlerFactory {
         let callbackName = Handler.endTurnCallback.rawValue + "_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
             let currentPlayerId = await game.currentPlayer.id
-            let isAdmin = await currentPlayerId == game.adminId
+            let isAdmin = await update.callbackQuery?.from.id == game.adminId
             
             guard chatId == update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd,

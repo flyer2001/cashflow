@@ -24,4 +24,12 @@ final class GameLogicTests: XCTestCase {
         
         XCTAssertEqual(currentId, lastId)
     }
+    
+    func testAdmin() async {
+        game = Game()
+        await game.setAdmin(id: 0)
+        
+        let adminId = await game.adminId
+        XCTAssertEqual(adminId, 0)
+    }
 }
