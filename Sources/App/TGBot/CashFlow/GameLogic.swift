@@ -21,17 +21,7 @@ actor Game {
     }
     
     func shuffle() throws {
-        var shufflePlayers = players
-        
-        guard !players.isEmpty else {
-            throw GameError.emptyPlayers
-        }
-        
-        for i in 0..<shufflePlayers.count {
-            let randomIndex = Int.random(in: 0..<shufflePlayers.count)
-            shufflePlayers.swapAt(i, randomIndex)
-        }
-        self.players = shufflePlayers
+        self.players = players.shuffled()
         
         guard let firstPlayer = players.first else {
             throw GameError.emptyPlayers

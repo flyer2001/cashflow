@@ -83,6 +83,41 @@ final class AppTests: XCTestCase {
         try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
     }
     
+    func testJoinToGameCallbackHandler() async throws {
+        // имитируем нажати кнопки
+        let update = TGUpdate(
+            updateId: 12345,
+            callbackQuery: TGCallbackQuery(
+                id: "1234",
+                from: TGUser(id: chatId, isBot: false, firstName: "isTest", username: "istest"),
+                message: TGMessage(
+                    messageId: 1234,
+                    date: 0,
+                    chat: TGChat(
+                        id: chatId,
+                        type: .group
+                    ),
+                    text: "/play",
+                    entities: [TGMessageEntity(type: .botCommand, offset: 0, length: 5)]
+
+                ),
+                chatInstance: "123",
+                data: HandlerFactory.Handler.startGameCallback.rawValue + "_\(chatId)"
+            )
+        )
+        let game = Game()
+
+        let handler = await app.handlerManager.handlerFactory.joinToGameHandler(chatId: chatId, game: game)
+        XCTAssertEqual(handler.name, HandlerFactory.Handler.joingToGameCallback.rawValue + "_\(chatId)")
+        try await handler.handle(update: update, bot: app.bot)
+        let userName = await game.players[0].name
+        XCTAssertEqual(userName, "istest")
+        
+        XCTAssertEqual(events, [.joinToGame])
+        
+        try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
+    }
+    
     // Обработчик callback Новая игра после нажатия кнопки
     func testAddPlayerMenuCallbackHandler() async throws {
         // имитируем нажати кнопки
