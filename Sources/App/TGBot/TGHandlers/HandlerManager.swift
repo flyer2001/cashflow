@@ -48,6 +48,9 @@ actor HandlerManager {
     
     func addDefaultPlayHandler() async throws {
         let defaultHandler = try handlerFactory.createDefaultPlayHandler { [weak self] newGameChatId, _ in
+            try await self?.removeAllHandlers(for: newGameChatId)
+            await self?.removeChatGptHandler()
+
             await self?.createNewGameHandlers(for: newGameChatId)
         }
         await app.dispatcher.add(defaultHandler)
@@ -96,6 +99,7 @@ actor HandlerManager {
         }
         activeSessions[chatId] = nil
         try await removeAllHandlers(for: chatId)
+        await removeChatGptHandler()
         try await app.tgApi.sendMessage(chatId: chatId, text: "Сессия прекращена. Наберите снова /play чтобы начать игру заново или возобновить игру")
         await app.logger.log(event: .stopSession(chatId: chatId))
     }
@@ -104,6 +108,7 @@ actor HandlerManager {
     private func startHandler() async {
         await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { [weak self] update, bot in
             guard let message = update.message else { return }
+            await self?.removeChatGptHandler()
             let state = DialogState()
             let params: TGSendMessageParams
             if message.from?.id == 566335622,
@@ -158,10 +163,13 @@ actor HandlerManager {
             await state.stopDialog()
             let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "выход")
             try await self?.app.bot.sendMessage(params: params)
-            
-            guard let dispatcher = await self?.app.dispatcher as? Dispatcher else { return }
-            await dispatcher.removeChatGptHandler()
+            await self?.removeChatGptHandler()
         })
         
+    }
+    
+    private func removeChatGptHandler() async {
+        guard let dispatcher = await app.dispatcher as? Dispatcher else { return }
+        await dispatcher.removeChatGptHandler()
     }
 }
