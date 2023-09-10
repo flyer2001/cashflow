@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.8
 import PackageDescription
     
 let package = Package(
@@ -8,8 +8,8 @@ let package = Package(
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.76.0"),
-        .package(url: "https://github.com/nerzh/telegram-vapor-bot", .upToNextMajor(from: "2.2.0")),
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.81.0"),
+        .package(url: "https://github.com/nerzh/telegram-vapor-bot", .upToNextMajor(from: "2.3.2")),
         // ChatGPT
         .package(url: "https://github.com/flyer2001/ChatGPTSwift", .upToNextMajor(from: "1.0.0")),
         .package(url: "https://github.com/t-ae/Swim", .upToNextMajor(from: "3.0.0")),
