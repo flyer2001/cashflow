@@ -2,13 +2,20 @@ import Foundation
 
 enum GameError: Error {
     case emptyPlayers
+    case usePopSmallOrBigDealInstead
 }
 
 actor Game {
     private(set) var players: [Player] = []
     private(set) var adminId: Int64 = 0
     
-    let board: [String] = defaultBoard
+    let board: [BoardCell] = defaultBoard
+    var marketDeck: [String] = marketDeckDefault.shuffled()
+    var luxuryDeck: [String] = luxuryDeckDefault.shuffled()
+    var smallDealsDeck: [String] = smallDealsDefault.shuffled()
+    var bigDealsDeck: [String] = bigDealsDefault.shuffled()
+    var conflictDeck: [String] = conflictDeckDefault.shuffled()
+    
     var currentPlayer: Player!
     let dice = Dice()
     let turn = Turn()
@@ -44,11 +51,44 @@ actor Game {
         }
     }
     
-    func moveCurrentPlayer(step: Int) -> String {
+    func moveCurrentPlayer(step: Int) -> BoardCell {
         currentPlayer.position += step
         if currentPlayer.position >= board.count {
             currentPlayer.position %= board.count
         }
         return board[currentPlayer.position]
+       
+    }
+    
+    func popDeck(cell: BoardCell) throws -> String {
+        switch cell {
+        case .child, .charityAcquaintance, .dismission:
+            return cell.description
+        case .market:
+            return popCard(deck: &marketDeck, defaultDeck: Game.marketDeckDefault)
+        case .luxure:
+            return popCard(deck: &luxuryDeck, defaultDeck: Game.luxuryDeckDefault)
+        case .possibilities:
+            throw GameError.usePopSmallOrBigDealInstead
+        case .checkConflict:
+            return popCard(deck: &conflictDeck, defaultDeck: Game.conflictDeckDefault)
+        }
+    }
+    
+    func popSmallDealDeck() -> String {
+        popCard(deck: &smallDealsDeck, defaultDeck: Game.smallDealsDefault)
+    }
+    
+    func popBigDealDeck() -> String {
+        popCard(deck: &bigDealsDeck, defaultDeck: Game.bigDealsDefault)
+    }
+    
+    private func popCard(deck: inout [String], defaultDeck: [String]) -> String {
+        if let lastCard = deck.popLast() {
+            return lastCard
+        } else {
+            deck = defaultDeck.shuffled()
+            return deck.popLast() ?? ""
+        }
     }
 }
