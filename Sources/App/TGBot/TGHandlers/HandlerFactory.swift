@@ -14,6 +14,8 @@ final class HandlerFactory {
         case resumeCallback
         case rollDiceCallback
         case endTurnCallback
+        case chooseSmallDealsCallback
+        case chooseBigDealsCallback
     }
     
     
@@ -129,7 +131,6 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
             ]
             
-            
             try await self?.sendMap(
                 for: game.currentPlayer.position,
                 chatId: chatId,
@@ -193,22 +194,34 @@ final class HandlerFactory {
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
             
-            let targetTitle = await game.moveCurrentPlayer(step: diceResult)
-            let buttons: [[TGInlineKeyboardButton]] = [
-                [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
-            ]
-            
+            let targetCell = await game.moveCurrentPlayer(step: diceResult)
+            let captionText: String
+            let nextStepButtons: [[TGInlineKeyboardButton]]
+            if case BoardCell.possibilities = targetCell {
+                captionText = "\(update.callbackQuery?.from.username ?? "") у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n Выберите крупную или мелкую сделку:"
+                nextStepButtons = [
+                    [.init(text: "Мелкие сделки", callbackData: Handler.chooseSmallDealsCallback.rawValue + "_\(chatId)"),
+                     .init(text: "Крупные сделки", callbackData: Handler.chooseBigDealsCallback.rawValue + "_\(chatId)")
+                    ],
+                ]
+            } else {
+                let card = try await game.popDeck(cell: targetCell)
+                captionText = "\(update.callbackQuery?.from.username ?? "") у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n \(card) \n\n Действуйте или завершите ход"
+                nextStepButtons = [
+                    [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
+                ]
+            }
+        
             try await self?.sendMap(
                 for: game.currentPlayer.position,
                 chatId: chatId,
-                captionText: "\(update.callbackQuery?.from.username ?? "") у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetTitle) \n\n Действуйте или завершите ход",
-                buttons: buttons
+                captionText: captionText,
+                buttons: nextStepButtons
             )
             await game.dice.resumeDice()
             try await Task.sleep(nanoseconds: 2000000000)
             
             // try? чтобы тесты не валились
-            try? await self?.tgApi.deleteMessage(chatId: chatId, messageId: update.callbackQuery?.message?.messageId ?? 0)
             try? await self?.tgApi.deleteMessage(chatId: chatId, messageId: diceMessage.messageId)
             await completion?()
         }
@@ -234,18 +247,84 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
             ]
             
-            try await self?.tgApi.editCaption(
+            try? await self?.tgApi.editCaption(
                 chatId: chatId,
                 messageId: update.callbackQuery?.message?.messageId ?? 0,
-                newCaptionText: "\(currentUserName) теперь ваш ход",
+                newCaptionText: update.callbackQuery?.message?.caption,
                 parseMode: nil,
-                newButtons: buttons
+                newButtons: nil
+            )
+            try? await self?.tgApi.editMessage(
+                chatId: chatId,
+                messageId: update.callbackQuery?.message?.messageId ?? 0,
+                newText: update.callbackQuery?.message?.caption ?? "",
+                newButtons: nil
+            )
+            
+            try await self?.tgApi.sendMessage(
+                chatId: chatId,
+                text: "\(currentUserName) теперь ваш ход",
+                inlineButtons: buttons
             )
 
             await game.turn.endTurn()
             await self?.logger.log(event: .endTurn)
             await self?.logger.log(event: .message(id: update.message?.messageId ?? 0))
             await completion?()
+        }
+    }
+    
+    func createSmallDealHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
+        let callbackName = Handler.chooseSmallDealsCallback.rawValue + "_\(chatId)"
+        return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
+            let currentPlayerId = await game.currentPlayer.id
+            let isAdmin = await currentPlayerId == game.adminId
+            
+            guard chatId == update.callbackQuery?.message?.chat.id,
+                await !game.turn.isTurnEnd,
+                  currentPlayerId == update.callbackQuery?.from.id || isAdmin
+            else { return }
+            
+            let card = await game.popSmallDealDeck()
+            let text = "\(card) \n\n Действуйте или завершите ход"
+            let nextStepButtons: [[TGInlineKeyboardButton]] = [
+                [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
+            ]
+            
+            try await self?.tgApi.sendMessage(
+                chatId: chatId,
+                text: text,
+                inlineButtons: nextStepButtons
+            )
+            
+            await self?.logger.log(event: .popSmallDealsDeck)
+        }
+    }
+    
+    func createBigDealHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
+        let callbackName = Handler.chooseBigDealsCallback.rawValue + "_\(chatId)"
+        return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
+            let currentPlayerId = await game.currentPlayer.id
+            let isAdmin = await currentPlayerId == game.adminId
+            
+            guard chatId == update.callbackQuery?.message?.chat.id,
+                await !game.turn.isTurnEnd,
+                  currentPlayerId == update.callbackQuery?.from.id || isAdmin
+            else { return }
+            
+            let card = await game.popBigDealDeck()
+            let text = "\(card) \n\n Действуйте или завершите ход"
+            let nextStepButtons: [[TGInlineKeyboardButton]] = [
+                [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
+            ]
+            
+            try await self?.tgApi.sendMessage(
+                chatId: chatId,
+                text: text,
+                inlineButtons: nextStepButtons
+            )
+            
+            await self?.logger.log(event: .popSmallDealsDeck)
         }
     }
 }

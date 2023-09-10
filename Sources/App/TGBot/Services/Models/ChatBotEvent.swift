@@ -9,6 +9,8 @@ enum ChatBotEvent: Equatable {
     case sendDrawingMap
     case saveCacheId
     case endTurn
+    case popSmallDealsDeck
+    case popBigDealsDeck
     case captionChanged
     case updateSession(chatId: Int64)
     case stopSession(chatId: Int64)
@@ -42,6 +44,10 @@ extension ChatBotEvent {
             return "Ход окончен"
         case .message(let id):
             return "Сообщение с id=\(id) отправлено"
+        case .popSmallDealsDeck:
+            return "Пользователь выбрал маленькие сделки"
+        case .popBigDealsDeck:
+            return "Пользователь выбрал большие сделки"
         case .updateSession(let chatId):
             return "Таймер сессии чата \(chatId) обновлен"
         case .stopSession(let chatId):
