@@ -30,13 +30,15 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     let logger = ChatBotLogger(app: app)
     let imageCache = ImageCache(logger: logger)
     let mapDrawer = MapDrawer(cache: imageCache, logger: logger)
+    let professionsCardDrawer = ProffessionsCardDrawer(cache: imageCache)
     
     let tgApiHelper = TelegramBotAPIHelper(bot: bot, logger: logger)
     let handlerFactory = HandlerFactory(
         cache: imageCache,
         tgApi: tgApiHelper,
         logger: logger,
-        mapDrawer: mapDrawer
+        mapDrawer: mapDrawer,
+        professionsCardDrawer: professionsCardDrawer
     )
 
     let tgBotApp = App(
@@ -56,13 +58,17 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     #endif
     
     var imagePath = ""
+    var proffesionsPath = ""
     #if os(Linux)
         imagePath = app.directory.publicDirectory + "rat_ring.png"
+        proffesionsPath = app.directory.publicDirectory
     #elseif os(macOS)
         // Путь для дебага
         imagePath = "/Users/sgpopyvanov/tgbot/Public/rat_ring.png"
+        proffesionsPath = "/Users/sgpopyvanov/tgbot/Public/"
     #endif
     await tgBotApp.cache.setImagePath(path: imagePath)
+    await tgBotApp.cache.setProffesionsPath(path: proffesionsPath)
     
     try await tgBotApp.startConnection()
     

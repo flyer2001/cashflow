@@ -40,6 +40,18 @@ actor Game {
         self.adminId = id
     }
     
+    func shufflePlayerProffessions() {
+        let proffesions = Proffesion.allCases.shuffled()
+        var proffessionIndex: Int = 0
+        players.enumerated().forEach { index, player in
+            if proffessionIndex == proffesions.count - 1 {
+                proffessionIndex = 0
+            }
+            player.proffesion = proffesions[proffessionIndex]
+            proffessionIndex += 1
+        }
+    }
+    
     func nextPlayer() {
         guard let currentIndex = players.firstIndex(where: { $0.id == currentPlayer.id }) else {
             return

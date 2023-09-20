@@ -23,17 +23,20 @@ final class HandlerFactory {
     private let cache: ImageCache
     private let logger: ChatBotLogger
     private let mapDrawer: MapDrawer
+    private let professionsCardDrawer: ProffessionsCardDrawer
 
     init(
         cache: ImageCache,
         tgApi: TelegramBotAPIHelper,
         logger: ChatBotLogger,
-        mapDrawer: MapDrawer
+        mapDrawer: MapDrawer,
+        professionsCardDrawer: ProffessionsCardDrawer
     ) {
         self.tgApi = tgApi
         self.cache = cache
         self.logger = logger
         self.mapDrawer = mapDrawer
+        self.professionsCardDrawer = professionsCardDrawer
     }
 
     func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ messageId: Int) async throws -> ()) throws -> TGHandlerPrtcl {
@@ -125,6 +128,11 @@ final class HandlerFactory {
             if await game.players.count > 1  {
                 try await game.shuffle()
             }
+            await game.shufflePlayerProffessions()
+            try await game.players.asyncForEach { [weak self] player in
+                try await self?.sendProffessionCard(for: player, chatId: chatId)
+            }
+            
             let currentPlayerName = await game.currentPlayer.name
             
             let buttons: [[TGInlineKeyboardButton]] = [
@@ -171,6 +179,36 @@ final class HandlerFactory {
             await self?.cache.setValue(fileId, for: position)
         }
     }
+    
+    private func sendProffessionCard(
+        for player: Player,
+        chatId: Int64
+    ) async throws {
+        guard let proffession = player.proffesion else { return }
+        let captionText = "\(player.name), ваша профессия: \(proffession.description)"
+        
+        if let fileId = await cache.getCardValue(for: proffession) {
+            try await tgApi.sendPhotoFromCache(
+                chatId: chatId,
+                fileId: fileId,
+                captionText: captionText,
+                buttons: nil
+            )
+            return
+        }
+        
+        let outputImageData = try await professionsCardDrawer.drawCard(for: proffession)
+        
+        try await tgApi.sendPhoto(
+            chatId: chatId,
+            captionText: captionText,
+            photoData: outputImageData,
+            inlineButtons: nil
+        ) { [weak self] message in
+            guard let fileId = message.photo?.first?.fileId else { return }
+            await self?.cache.setCardValue(fileId, for: proffession)
+        }
+    }
 
     func createRollDiceHandler(chatId: Int64, game: Game, completion: (() async -> ())? = nil) -> TGHandlerPrtcl {
         let callbackName = Handler.rollDiceCallback.rawValue + "_\(chatId)"
@@ -198,6 +236,7 @@ final class HandlerFactory {
             let captionText: String
             let nextStepButtons: [[TGInlineKeyboardButton]]
             if case BoardCell.possibilities = targetCell {
+                await game.turn.startDeckSelection()
                 captionText = "\(update.callbackQuery?.from.username ?? "") у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n Выберите крупную или мелкую сделку:"
                 nextStepButtons = [
                     [.init(text: "Мелкие сделки", callbackData: Handler.chooseSmallDealsCallback.rawValue + "_\(chatId)"),
@@ -233,9 +272,10 @@ final class HandlerFactory {
             let currentPlayerId = await game.currentPlayer.id
             let isAdmin = await update.callbackQuery?.from.id == game.adminId
             
-            guard chatId == update.callbackQuery?.message?.chat.id,
+            guard
+                chatId == update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd,
-                  currentPlayerId == update.callbackQuery?.from.id || isAdmin
+                currentPlayerId == update.callbackQuery?.from.id || isAdmin
             else { return }
             
             await game.nextPlayer()
@@ -247,19 +287,24 @@ final class HandlerFactory {
                 [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
             ]
             
-            try? await self?.tgApi.editCaption(
-                chatId: chatId,
-                messageId: update.callbackQuery?.message?.messageId ?? 0,
-                newCaptionText: update.callbackQuery?.message?.caption,
-                parseMode: nil,
-                newButtons: nil
-            )
-            try? await self?.tgApi.editMessage(
-                chatId: chatId,
-                messageId: update.callbackQuery?.message?.messageId ?? 0,
-                newText: update.callbackQuery?.message?.caption ?? "",
-                newButtons: nil
-            )
+            if let captionText = update.callbackQuery?.message?.caption {
+                try await self?.tgApi.editCaption(
+                    chatId: chatId,
+                    messageId: update.callbackQuery?.message?.messageId ?? 0,
+                    newCaptionText: captionText,
+                    parseMode: nil,
+                    newButtons: nil
+                )
+            }
+            
+            if let text = update.callbackQuery?.message?.text {
+                try? await self?.tgApi.editMessage(
+                    chatId: chatId,
+                    messageId: update.callbackQuery?.message?.messageId ?? 0,
+                    newText: text,
+                    newButtons: nil
+                )
+            }
             
             try await self?.tgApi.sendMessage(
                 chatId: chatId,
@@ -278,13 +323,17 @@ final class HandlerFactory {
         let callbackName = Handler.chooseSmallDealsCallback.rawValue + "_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
             let currentPlayerId = await game.currentPlayer.id
-            let isAdmin = await currentPlayerId == game.adminId
+            let touchButtonPlayerId = update.callbackQuery?.from.id
+            let isAdmin = await touchButtonPlayerId == game.adminId
             
-            guard chatId == update.callbackQuery?.message?.chat.id,
+            guard
+                chatId == update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd,
-                  currentPlayerId == update.callbackQuery?.from.id || isAdmin
+                currentPlayerId == touchButtonPlayerId || isAdmin,
+                await !game.turn.isDealDeckSelectionComplete
             else { return }
             
+            await game.turn.stopDeckSelection()
             let card = await game.popSmallDealDeck()
             let text = "\(card) \n\n Действуйте или завершите ход"
             let nextStepButtons: [[TGInlineKeyboardButton]] = [
@@ -305,13 +354,17 @@ final class HandlerFactory {
         let callbackName = Handler.chooseBigDealsCallback.rawValue + "_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
             let currentPlayerId = await game.currentPlayer.id
-            let isAdmin = await currentPlayerId == game.adminId
+            let touchButtonPlayerId = update.callbackQuery?.from.id
+            let isAdmin = await touchButtonPlayerId == game.adminId
             
-            guard chatId == update.callbackQuery?.message?.chat.id,
+            guard
+                chatId == update.callbackQuery?.message?.chat.id,
                 await !game.turn.isTurnEnd,
-                  currentPlayerId == update.callbackQuery?.from.id || isAdmin
+                currentPlayerId == touchButtonPlayerId || isAdmin,
+                await !game.turn.isDealDeckSelectionComplete
             else { return }
             
+            await game.turn.stopDeckSelection()
             let card = await game.popBigDealDeck()
             let text = "\(card) \n\n Действуйте или завершите ход"
             let nextStepButtons: [[TGInlineKeyboardButton]] = [
