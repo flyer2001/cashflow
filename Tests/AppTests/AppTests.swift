@@ -73,7 +73,7 @@ final class AppTests: XCTestCase {
             self?.messageId = messageId
             XCTAssertEqual(startGameChatId, self?.chatId)
         }
-        XCTAssertEqual(handler.name, HandlerFactory.Handler.playHandler.rawValue)
+        XCTAssertEqual(handler.name, HandlerFactory.Handler.playCommandHandler.rawValue)
         
         try await handler.handle(update: update, bot: app.bot)
         

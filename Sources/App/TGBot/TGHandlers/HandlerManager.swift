@@ -54,6 +54,8 @@ actor HandlerManager {
             await self?.createNewGameHandlers(for: newGameChatId)
         }
         await app.dispatcher.add(defaultHandler)
+        let rollDiceCommandHandler =  handlerFactory.createRollDiceCommandHandler()
+        await app.dispatcher.add(rollDiceCommandHandler)
         await observeSessionActivity()
         
         await startHandler()
