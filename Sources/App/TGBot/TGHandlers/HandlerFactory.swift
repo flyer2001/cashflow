@@ -265,7 +265,7 @@ final class HandlerFactory {
                 ]
             } else {
                 let card = try await game.popDeck(cell: targetCell)
-                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n \(card) \n\n Действуйте или завершите ход"
+                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.rawValue) \n\n\(card) \n\nДействуйте или завершите ход"
                 nextStepButtons = [
                     [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
                 ]
