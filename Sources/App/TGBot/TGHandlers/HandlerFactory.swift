@@ -237,7 +237,7 @@ final class HandlerFactory {
             let nextStepButtons: [[TGInlineKeyboardButton]]
             if case BoardCell.possibilities = targetCell {
                 await game.turn.startDeckSelection()
-                captionText = "\(update.callbackQuery?.from.username ?? "") у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n Выберите крупную или мелкую сделку:"
+                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n Выберите крупную или мелкую сделку:"
                 nextStepButtons = [
                     [.init(text: "Мелкие сделки", callbackData: Handler.chooseSmallDealsCallback.rawValue + "_\(chatId)"),
                      .init(text: "Крупные сделки", callbackData: Handler.chooseBigDealsCallback.rawValue + "_\(chatId)")
@@ -245,7 +245,7 @@ final class HandlerFactory {
                 ]
             } else {
                 let card = try await game.popDeck(cell: targetCell)
-                captionText = "\(update.callbackQuery?.from.username ?? "") у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n \(card) \n\n Действуйте или завершите ход"
+                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.description) \n\n \(card) \n\n Действуйте или завершите ход"
                 nextStepButtons = [
                     [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
                 ]
