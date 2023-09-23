@@ -6,7 +6,8 @@ enum HandlerFactoryError: Error {
 
 final class HandlerFactory {
     enum Handler: String {
-        case playHandler
+        case playCommandHandler
+        case rollDiceCommandHandler
         case addPlayerMenuCallback
         case joingToGameCallback
         case startGameCallback
@@ -41,7 +42,7 @@ final class HandlerFactory {
 
     func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ messageId: Int) async throws -> ()) throws -> TGHandlerPrtcl {
         TGCommandHandler(
-            name: Handler.playHandler.rawValue,
+            name: Handler.playCommandHandler.rawValue,
             commands: ["/play", "/play@cashflow_game_ru_bot"]
         ) { [weak self] update, bot in
             guard let chatId = update.message?.chat.id else {
@@ -68,6 +69,24 @@ final class HandlerFactory {
                 await self.logger.log(event: .startGameMenuSent)
                 try? await startGameCompletion(chatId, message.messageId)
             }
+        }
+    }
+    
+    func createRollDiceCommandHandler() -> TGHandlerPrtcl {
+        TGCommandHandler(
+            name: Handler.rollDiceCommandHandler.rawValue,
+            commands: ["/roll", "/roll@cashflow_game_ru_bot"]
+        ) { [weak self] update, bot in
+            guard let chatId = update.message?.chat.id else {
+                throw HandlerFactoryError.chatIdNotFound
+            }
+            
+            let diceMessage = try await bot.sendDice(params: .init(chatId: .chat(chatId)))
+            await self?.logger.log(event: .sendDice)
+            
+            try await Task.sleep(nanoseconds: 3000000000)
+            guard let diceResult = diceMessage.dice?.value else { return }
+            try await self?.tgApi.sendMessage(chatId: chatId, text: "\(update.message?.from?.username ?? ""), у вас выпало: \(diceResult)")
         }
     }
     
