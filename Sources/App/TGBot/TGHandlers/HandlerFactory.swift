@@ -42,7 +42,7 @@ final class HandlerFactory {
     func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ messageId: Int) async throws -> ()) throws -> TGHandlerPrtcl {
         TGCommandHandler(
             name: Handler.playHandler.rawValue,
-            commands: ["/play"]
+            commands: ["/play", "/play@cashflow_game_ru_bot"]
         ) { [weak self] update, bot in
             guard let chatId = update.message?.chat.id else {
                 throw HandlerFactoryError.chatIdNotFound
