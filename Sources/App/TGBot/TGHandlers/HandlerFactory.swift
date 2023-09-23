@@ -266,6 +266,9 @@ final class HandlerFactory {
             } else {
                 let card = try await game.popDeck(cell: targetCell)
                 await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.rawValue) \n\n\(card) \n\nДействуйте или завершите ход"
+                
+                if targetCell == .dismission { await game.fireCurrentPlayer() }
+                
                 nextStepButtons = [
                     [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
                 ]
@@ -299,6 +302,9 @@ final class HandlerFactory {
             else { return }
             
             await game.nextPlayer()
+            
+            try await self?.checkIsFiredPlayer(game: game, chatId: chatId)
+                
             let currentUserName = await game.currentPlayer.name
             
             try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Завершаю ход")
@@ -326,6 +332,15 @@ final class HandlerFactory {
             await self?.logger.log(event: .endTurn)
             await self?.logger.log(event: .message(id: update.message?.messageId ?? 0))
             await completion?()
+        }
+    }
+    
+    private func checkIsFiredPlayer(game: Game, chatId: Int64) async throws {
+        while await game.currentPlayer.isFired {
+            await game.countDownFiredMissTurnForCurrentPlayer()
+            let additionText = await game.currentPlayer.firedMissTurnCount == 1 ? ". Осталось пропустить еще 1 ход" : ""
+            try await tgApi.sendMessage(chatId: chatId, text: "\(game.currentPlayer.name) пропускает ход" + additionText)
+            await game.nextPlayer()
         }
     }
     
@@ -364,6 +379,7 @@ final class HandlerFactory {
             else { return }
             
             await game.nextPlayer()
+            try await self?.checkIsFiredPlayer(game: game, chatId: chatId)
             let currentUserName = await game.currentPlayer.name
             
             try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Завершаю ход")

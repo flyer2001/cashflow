@@ -20,6 +20,7 @@ actor Game {
     let dice = Dice()
     let turn = Turn()
     
+    // MARK: - Game Setup Methods
     func addPlayer(_ id: Int64, name: String) {
         guard !players.contains(where: { $0.id == id }) else { return }
         let player = Player(id: id, name: name)
@@ -52,6 +53,7 @@ actor Game {
         }
     }
     
+    // MARK: - Game Logic Methods
     func nextPlayer() {
         guard let currentIndex = players.firstIndex(where: { $0.id == currentPlayer.id }) else {
             return
@@ -85,6 +87,16 @@ actor Game {
         case .checkConflict:
             return popCard(deck: &conflictDeck, defaultDeck: Game.conflictDeckDefault)
         }
+    }
+    
+    func fireCurrentPlayer() {
+        currentPlayer.isFired = true
+        currentPlayer.firedMissTurnCount = 2
+    }
+    
+    func countDownFiredMissTurnForCurrentPlayer() {
+        currentPlayer.firedMissTurnCount -= 1
+        currentPlayer.isFired = currentPlayer.firedMissTurnCount > 0
     }
     
     func popSmallDealDeck() -> String {
