@@ -14,6 +14,7 @@ final class HandlerFactory {
         case rulesCallback
         case resumeCallback
         case rollDiceCallback
+        case passTurnCallback
         case endTurnCallback
         case chooseSmallDealsCallback
         case chooseBigDealsCallback
@@ -303,27 +304,17 @@ final class HandlerFactory {
             try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Завершаю ход")
             
             let buttons: [[TGInlineKeyboardButton]] = [
-                [.init(text: "Бросить кубик 🎲", callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)")]
+                [.init(
+                    text: "Пропустить ход",
+                    callbackData: Handler.passTurnCallback.rawValue + "_\(chatId)"
+                )],
+                [.init(
+                    text: "Бросить кубик 🎲",
+                    callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)"
+                 )]
             ]
             
-            if let captionText = update.callbackQuery?.message?.caption {
-                try await self?.tgApi.editCaption(
-                    chatId: chatId,
-                    messageId: update.callbackQuery?.message?.messageId ?? 0,
-                    newCaptionText: captionText,
-                    parseMode: nil,
-                    newButtons: nil
-                )
-            }
-            
-            if let text = update.callbackQuery?.message?.text {
-                try? await self?.tgApi.editMessage(
-                    chatId: chatId,
-                    messageId: update.callbackQuery?.message?.messageId ?? 0,
-                    newText: text,
-                    newButtons: nil
-                )
-            }
+            try await self?.removeButtonFromCaptionOrTextMessage(in: update.callbackQuery?.message, chatId: chatId)
             
             try await self?.tgApi.sendMessage(
                 chatId: chatId,
@@ -335,6 +326,67 @@ final class HandlerFactory {
             await self?.logger.log(event: .endTurn)
             await self?.logger.log(event: .message(id: update.message?.messageId ?? 0))
             await completion?()
+        }
+    }
+    
+    private func removeButtonFromCaptionOrTextMessage(in message: TGMessage?, chatId: Int64) async throws {
+        if let captionText = message?.caption {
+            try await tgApi.editCaption(
+                chatId: chatId,
+                messageId: message?.messageId ?? 0,
+                newCaptionText: captionText,
+                parseMode: nil,
+                newButtons: nil
+            )
+        }
+        
+        if let text = message?.text {
+            try? await tgApi.editMessage(
+                chatId: chatId,
+                messageId: message?.messageId ?? 0,
+                newText: text,
+                newButtons: nil
+            )
+        }
+    }
+    
+    func createPassTurnCallbackHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
+        let callbackName = Handler.passTurnCallback.rawValue + "_\(chatId)"
+        return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
+            let currentPlayerId = await game.currentPlayer.id
+            let touchButtonPlayerId = update.callbackQuery?.from.id
+            let isAdmin = await touchButtonPlayerId == game.adminId
+            
+            guard
+                chatId == update.callbackQuery?.message?.chat.id,
+                //await !game.turn.isTurnEnd,
+                currentPlayerId == update.callbackQuery?.from.id || isAdmin
+            else { return }
+            
+            await game.nextPlayer()
+            let currentUserName = await game.currentPlayer.name
+            
+            try? await self?.tgApi.sendCallbackAnswer(callbackId: update.callbackQuery?.id ?? "", "Завершаю ход")
+            
+            let buttons: [[TGInlineKeyboardButton]] = [
+                [.init(
+                    text: "Пропустить ход",
+                    callbackData: Handler.passTurnCallback.rawValue + "_\(chatId)"
+                )],
+                [.init(
+                    text: "Бросить кубик 🎲",
+                    callbackData: Handler.rollDiceCallback.rawValue + "_\(chatId)"
+                 )]
+            ]
+            try await self?.removeButtonFromCaptionOrTextMessage(in: update.callbackQuery?.message, chatId: chatId)
+            
+            try await self?.tgApi.sendMessage(
+                chatId: chatId,
+                text: "\(currentUserName) теперь ваш ход",
+                inlineButtons: buttons
+            )
+            
+            await game.turn.endTurn()
         }
     }
     
