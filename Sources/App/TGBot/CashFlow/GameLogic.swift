@@ -15,11 +15,13 @@ actor Game {
     var smallDealsDeck: [String] = smallDealsDefault.shuffled()
     var bigDealsDeck: [String] = bigDealsDefault.shuffled()
     var conflictDeck: [String] = conflictDeckDefault.shuffled()
+    var meetingDeck: [String] = meetingDeckDefault.shuffled()
     
     var currentPlayer: Player!
     let dice = Dice()
     let turn = Turn()
     
+    // MARK: - Game Setup Methods
     func addPlayer(_ id: Int64, name: String) {
         guard !players.contains(where: { $0.id == id }) else { return }
         let player = Player(id: id, name: name)
@@ -52,6 +54,7 @@ actor Game {
         }
     }
     
+    // MARK: - Game Move Methods
     func nextPlayer() {
         guard let currentIndex = players.firstIndex(where: { $0.id == currentPlayer.id }) else {
             return
@@ -68,13 +71,72 @@ actor Game {
         if currentPlayer.position >= board.count {
             currentPlayer.position %= board.count
         }
+        chageStateForCurrentPlayer()
         return board[currentPlayer.position]
-       
     }
     
+    private func chageStateForCurrentPlayer() {
+        switch board[currentPlayer.position] {
+        case .dismission:
+            fireCurrentPlayer()
+        case .checkConflict:
+            readyForConflictCurrentPlayer()
+        default:
+            return
+        }
+    }
+    // MARK: - Charity
+    func takeCharityBoost() {
+        currentPlayer.isCharityBoost = true
+        currentPlayer.charityBoostCount = 4 // чтобы свой же ход пропустить
+    }
+    
+    func declineCharityBoost() {
+        currentPlayer.isCharityBoost = false
+        currentPlayer.charityBoostCount = 0
+    }
+    
+    func charityBoostIfAvailable() -> Bool {
+        guard currentPlayer.isCharityBoost else { return false }
+        currentPlayer.charityBoostCount -= 1
+        return currentPlayer.charityBoostCount > 0 && currentPlayer.charityBoostCount < 3
+    }
+    
+    // MARK: - Conflict Logic
+    private func readyForConflictCurrentPlayer() {
+        currentPlayer.isConflict = true
+        currentPlayer.conflictOptionsCount = 3
+    }
+    
+    func isResolveConflict(dice: Int) -> Bool {
+        currentPlayer.conflictOptionsCount -= 1
+        if dice < 4 {
+            return false
+        } else {
+            currentPlayer.conflictReminder = nil
+            currentPlayer.isConflict = false
+            return true
+        }
+    }
+    
+    // MARK: - Fire Logic
+    func countDownFiredMissTurnForCurrentPlayer() {
+        currentPlayer.firedMissTurnCount -= 1
+        currentPlayer.isFired = currentPlayer.firedMissTurnCount > 0
+    }
+    
+    private func fireCurrentPlayer() {
+        currentPlayer.isFired = true
+        currentPlayer.firedMissTurnCount = 2
+    }
+    
+    
+    // MARK: - Pop Card Logic
     func popDeck(cell: BoardCell) throws -> String {
         switch cell {
-        case .child, .charityAcquaintance, .dismission:
+        case .charityAcquaintance:
+            return ""
+        case .child, .dismission:
             return cell.description
         case .market:
             return popCard(deck: &marketDeck, defaultDeck: Game.marketDeckDefault)
@@ -83,8 +145,14 @@ actor Game {
         case .possibilities:
             throw GameError.usePopSmallOrBigDealInstead
         case .checkConflict:
-            return popCard(deck: &conflictDeck, defaultDeck: Game.conflictDeckDefault)
+            let card = popCard(deck: &conflictDeck, defaultDeck: Game.conflictDeckDefault)
+            currentPlayer.conflictReminder = card
+            return card
         }
+    }
+    
+    func popMeetingDeck() -> String {
+        popCard(deck: &meetingDeck, defaultDeck: Game.meetingDeckDefault)
     }
     
     func popSmallDealDeck() -> String {

@@ -1,6 +1,7 @@
 actor Turn {
     var isTurnEnd = true
     var isDealDeckSelectionComplete = true
+    var isCharitySelectionComplete = true
     
     func startTurn() {
         isTurnEnd = false
@@ -16,5 +17,13 @@ actor Turn {
     
     func stopDeckSelection() {
         isDealDeckSelectionComplete = true
+    }
+    
+    func startCharitySelection() {
+        isCharitySelectionComplete = false
+    }
+    
+    func stopCharitySelection() {
+        isCharitySelectionComplete = true
     }
 }
