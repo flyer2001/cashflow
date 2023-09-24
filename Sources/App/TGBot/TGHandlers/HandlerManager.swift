@@ -72,6 +72,8 @@ actor HandlerManager {
         await add(handler: handlerFactory.createEndTurnHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createSmallDealHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createBigDealHandler(chatId: chatId, game: newGame), for: chatId)
+        await add(handler: handlerFactory.acceptCharityHandler(chatId: chatId, game: newGame), for: chatId)
+        await add(handler: handlerFactory.declineCharityHandler(chatId: chatId, game: newGame), for: chatId)
     }
     
     private func observeSessionActivity() async {

@@ -11,6 +11,7 @@ enum ChatBotEvent: Equatable {
     case endTurn
     case popSmallDealsDeck
     case popBigDealsDeck
+    case popMeetingDeck
     case captionChanged
     case updateSession(chatId: Int64)
     case stopSession(chatId: Int64)
@@ -48,6 +49,8 @@ extension ChatBotEvent {
             return "Пользователь выбрал маленькие сделки"
         case .popBigDealsDeck:
             return "Пользователь выбрал большие сделки"
+        case .popMeetingDeck:
+            return "Пользователь достал карточку знакомства"
         case .updateSession(let chatId):
             return "Таймер сессии чата \(chatId) обновлен"
         case .stopSession(let chatId):

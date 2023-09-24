@@ -15,6 +15,7 @@ actor Game {
     var smallDealsDeck: [String] = smallDealsDefault.shuffled()
     var bigDealsDeck: [String] = bigDealsDefault.shuffled()
     var conflictDeck: [String] = conflictDeckDefault.shuffled()
+    var meetingDeck: [String] = meetingDeckDefault.shuffled()
     
     var currentPlayer: Player!
     let dice = Dice()
@@ -84,6 +85,22 @@ actor Game {
             return
         }
     }
+    // MARK: - Charity
+    func takeCharityBoost() {
+        currentPlayer.isCharityBoost = true
+        currentPlayer.charityBoostCount = 4 // чтобы свой же ход пропустить
+    }
+    
+    func declineCharityBoost() {
+        currentPlayer.isCharityBoost = false
+        currentPlayer.charityBoostCount = 0
+    }
+    
+    func charityBoostIfAvailable() -> Bool {
+        guard currentPlayer.isCharityBoost else { return false }
+        currentPlayer.charityBoostCount -= 1
+        return currentPlayer.charityBoostCount > 0 && currentPlayer.charityBoostCount < 3
+    }
     
     // MARK: - Conflict Logic
     private func readyForConflictCurrentPlayer() {
@@ -132,6 +149,10 @@ actor Game {
             currentPlayer.conflictReminder = card
             return card
         }
+    }
+    
+    func popMeetingDeck() -> String {
+        popCard(deck: &meetingDeck, defaultDeck: Game.meetingDeckDefault)
     }
     
     func popSmallDealDeck() -> String {
