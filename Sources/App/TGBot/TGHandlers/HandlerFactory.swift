@@ -263,7 +263,7 @@ final class HandlerFactory {
             let nextStepButtons: [[TGInlineKeyboardButton]]
             if case BoardCell.possibilities = targetCell {
                 await game.turn.startDeckSelection()
-                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.rawValue) \n\n Выберите крупную или мелкую сделку:"
+                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.rawValue) \n\nВыберите крупную или мелкую сделку:"
                 nextStepButtons = [
                     [.init(text: "Мелкие сделки", callbackData: Handler.chooseSmallDealsCallback.rawValue + "_\(chatId)"),
                      .init(text: "Крупные сделки", callbackData: Handler.chooseBigDealsCallback.rawValue + "_\(chatId)")
@@ -575,7 +575,7 @@ final class HandlerFactory {
             
             await game.turn.stopDeckSelection()
             let card = await game.popSmallDealDeck()
-            let text = "\(card) \n\n Действуйте или завершите ход"
+            let text = "\(card) \n\nДействуйте или завершите ход"
             let nextStepButtons: [[TGInlineKeyboardButton]] = [
                 [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
             ]
