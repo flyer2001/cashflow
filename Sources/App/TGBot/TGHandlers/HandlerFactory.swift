@@ -322,7 +322,6 @@ final class HandlerFactory {
                 await game.nextPlayer()
             }
             
-            
             guard try await self.checkStatePlayer(game: game, chatId: chatId) else { return }
                 
             let currentUserName = await game.currentPlayer.name
@@ -341,6 +340,13 @@ final class HandlerFactory {
             ]
             
             try await self.removeButtonFromCaptionOrTextMessage(in: update.callbackQuery?.message, chatId: chatId)
+            
+            try await sendMap(
+                for: game.currentPlayer.position,
+                chatId: chatId,
+                captionText: "\(currentUserName) теперь ваш ход. Вы находитесь тут",
+                buttons: nil
+            )
             
             try await self.tgApi.sendMessage(
                 chatId: chatId,
