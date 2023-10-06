@@ -257,8 +257,7 @@ final class HandlerFactory {
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
             
-            //let targetCell = await game.moveCurrentPlayer(step: diceResult)
-            let targetCell = await game.moveCurrentPlayer(step: 22)
+            let targetCell = await game.moveCurrentPlayer(step: diceResult)
             
             let captionText: String
             let nextStepButtons: [[TGInlineKeyboardButton]]
@@ -378,14 +377,14 @@ final class HandlerFactory {
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
 
-            let currentVariant = 3 - (await game.currentPlayer.conflictOptionsCount)
+            let currentVariant = 4 - (await game.currentPlayer.conflictOptionsCount)
             let message: String
             let isResumeGame: Bool
             if await game.isResolveConflict(dice: diceResult) {
                 message = "Поздравляем! Вы разрешили конфликт, с помощью варианта \(currentVariant)! Внесите в свою таблицу удвоенный доход! И продолжайте игру."
                 isResumeGame = true
             } else if await game.currentPlayer.conflictOptionsCount > 0 {
-                message = "Увы, ваш партнер не согласен с вами. Конфликт не разрешен. Попробуйте вариант \(currentVariant + 2)"
+                message = "Увы, ваш партнер не согласен с вами. Конфликт не разрешен. Попробуйте вариант \(currentVariant + 1)"
                 isResumeGame = false
             } else {
                 message = "Увы...конфликт не разрешен. Вы не получаете доход. Продолжайте ход."
