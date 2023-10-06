@@ -134,10 +134,8 @@ actor Game {
     // MARK: - Pop Card Logic
     func popDeck(cell: BoardCell) throws -> String {
         switch cell {
-        case .charityAcquaintance:
+        case .charityAcquaintance, .child, .dismission:
             return ""
-        case .child, .dismission:
-            return cell.description
         case .market:
             return popCard(deck: &marketDeck, defaultDeck: Game.marketDeckDefault)
         case .luxure:

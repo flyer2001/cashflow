@@ -257,7 +257,8 @@ final class HandlerFactory {
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
             
-            let targetCell = await game.moveCurrentPlayer(step: diceResult)
+            //let targetCell = await game.moveCurrentPlayer(step: diceResult)
+            let targetCell = await game.moveCurrentPlayer(step: 22)
             
             let captionText: String
             let nextStepButtons: [[TGInlineKeyboardButton]]
@@ -279,8 +280,9 @@ final class HandlerFactory {
                 ]
             } else {
                 let card = try await game.popDeck(cell: targetCell)
+                let cardText = card.isEmpty ? "" : "\n\n\(card)"
                 let descriptionText = targetCell.description.isEmpty ? "" : "\n\n\(targetCell.description)"
-                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.rawValue) \(descriptionText) \n\n\(card) \n\nДействуйте или завершите ход"
+                await captionText = "\(game.currentPlayer.name) у вас выпало: \(diceResult) \n\nТеперь вы находитесь на: \(targetCell.rawValue) \(descriptionText) \(cardText) \n\nДействуйте или завершите ход"
                 
                 nextStepButtons = [
                     [.init(text: "Завершить ход", callbackData: Handler.endTurnCallback.rawValue + "_\(chatId)")],
