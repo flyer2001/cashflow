@@ -17,6 +17,8 @@ actor Game {
     var conflictDeck: [String] = conflictDeckDefault.shuffled()
     var meetingDeck: [String] = meetingDeckDefault.shuffled()
     
+    var isStarted = false
+    
     var currentPlayer: Player!
     let dice = Dice()
     let turn = Turn()
@@ -52,6 +54,10 @@ actor Game {
             player.proffesion = proffesions[proffessionIndex]
             proffessionIndex += 1
         }
+    }
+    
+    func start() {
+        isStarted = true
     }
     
     // MARK: - Game Move Methods

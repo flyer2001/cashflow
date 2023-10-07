@@ -7,6 +7,7 @@ enum HandlerFactoryError: Error {
 final class HandlerFactory {
     enum Handler: String {
         case playCommandHandler
+        case restartPlayCommandHandler
         case rollDiceCommandHandler
         case addPlayerMenuCallback
         case joingToGameCallback
@@ -44,35 +45,18 @@ final class HandlerFactory {
         self.professionsCardDrawer = professionsCardDrawer
     }
 
-    func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ messageId: Int) async throws -> ()) throws -> TGHandlerPrtcl {
+    func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ userId: Int64) async throws -> ()) throws -> TGHandlerPrtcl {
         TGCommandHandler(
             name: Handler.playCommandHandler.rawValue,
             commands: ["/play", "/play@cashflow_game_ru_bot"]
         ) { [weak self] update, bot in
-            guard let chatId = update.message?.chat.id else {
+            guard
+                let chatId = update.message?.chat.id,
+                let userId = update.message?.from?.id
+            else {
                 throw HandlerFactoryError.chatIdNotFound
             }
-            
-            let buttons: [[TGInlineKeyboardButton]] = [
-                [
-                    .init(text: "Новая игра", callbackData: "\(Handler.addPlayerMenuCallback.rawValue)_\(chatId)"),
-                    .init(text: "Возобновить игру", callbackData: "\(Handler.resumeCallback.rawValue)_\(chatId)"),
-
-                ],
-                [
-                    .init(text: "Правила игры", callbackData: "\(Handler.rulesCallback.rawValue)_\(chatId)"),
-                ]
-            ]
-            guard let self = self else { return }
-            try await self.tgApi.sendMessage(
-                chatId: chatId,
-                text: "Приветствуем\\! Это игра *Cashflow*\\. Нажмите одну из кнопок ниже",
-                parseMode: .markdownV2,
-                inlineButtons: buttons
-            ) { message in
-                await self.logger.log(event: .startGameMenuSent)
-                try? await startGameCompletion(chatId, message.messageId)
-            }
+            try await startGameCompletion(chatId, userId)
         }
     }
     
@@ -102,8 +86,7 @@ final class HandlerFactory {
             let buttons: [[TGInlineKeyboardButton]] = [
                 [
                     .init(text: "Присоединиться к игре", callbackData: "\(Handler.joingToGameCallback.rawValue)_\(chatId)"),
-                    .init(text: "Начать игру", callbackData: "\(Handler.startGameCallback.rawValue)_\(chatId)"),
-
+                    .init(text: "Начать игру", callbackData: "\(Handler.startGameCallback.rawValue)_\(chatId)")
                 ]
             ]
             
@@ -169,6 +152,7 @@ final class HandlerFactory {
                 parseMode: nil,
                 buttons: buttons
             )
+            await game.start()
         }
     }
     

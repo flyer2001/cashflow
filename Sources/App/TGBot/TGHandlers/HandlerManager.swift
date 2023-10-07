@@ -16,6 +16,7 @@ actor HandlerManager {
     private(set) var handlerFactory: HandlerFactory
     private(set) var activeHandlers: [Int64 : [TGHandlerPrtcl]] = [:]
     private(set) var activeSessions: [Int64: Task<(), Error>] = [:]
+    private var cachedGames: [Int64: Game] = [:]
     
     init(app: App, handlerFactory: HandlerFactory) {
         self.app = app
@@ -47,11 +48,45 @@ actor HandlerManager {
     }
     
     func addDefaultPlayHandler() async throws {
-        let defaultHandler = try handlerFactory.createDefaultPlayHandler { [weak self] newGameChatId, _ in
-            try await self?.removeAllHandlers(for: newGameChatId)
-            await self?.removeChatGptHandler()
-
-            await self?.createNewGameHandlers(for: newGameChatId)
+        let defaultHandler = try handlerFactory.createDefaultPlayHandler { [weak self] chatId, userId in
+            let cachedGame = await self?.cachedGames[chatId]
+           
+            if let cachedGame, await cachedGame.isStarted, await cachedGame.adminId == userId {
+                let buttons: [[TGInlineKeyboardButton]] = [
+                    [
+                        .init(text: "Новая игра", callbackData: "\(HandlerFactory.Handler.addPlayerMenuCallback.rawValue)_\(chatId)")
+                    ]
+                ]
+                try await self?.app.tgApi.sendMessage(
+                    chatId: chatId,
+                    text: "Предыдущая игра удалена. Начните новую",
+                    parseMode: nil,
+                    inlineButtons: buttons
+                )
+                
+                try await self?.restartGame(for: chatId)
+                return
+            }
+            
+            guard cachedGame == nil else { return }
+            
+            let buttons: [[TGInlineKeyboardButton]] = [
+                [
+                    .init(text: "Новая игра", callbackData: "\(HandlerFactory.Handler.addPlayerMenuCallback.rawValue)_\(chatId)"),
+                    .init(text: "Возобновить игру", callbackData: "\(HandlerFactory.Handler.resumeCallback.rawValue)_\(chatId)"),
+                ],
+                [
+                    .init(text: "Правила игры", callbackData: "\(HandlerFactory.Handler.rulesCallback.rawValue)_\(chatId)"),
+                ]
+            ]
+            try await self?.app.tgApi.sendMessage(
+                chatId: chatId,
+                text: "Приветствуем\\! Это игра *Cashflow*\\. Нажмите одну из кнопок ниже",
+                parseMode: .markdownV2,
+                inlineButtons: buttons
+            )
+            
+            try await self?.restartGame(for: chatId)
         }
         await app.dispatcher.add(defaultHandler)
         let rollDiceCommandHandler =  handlerFactory.createRollDiceCommandHandler()
@@ -61,8 +96,16 @@ actor HandlerManager {
         await startHandler()
     }
     
-    private func createNewGameHandlers(for chatId: Int64) async {
+    private func restartGame(for chatId: Int64) async throws {
+        try await removeAllHandlers(for: chatId)
+        await removeChatGptHandler()
+
+        try await createNewGameHandlers(for: chatId)
+    }
+    
+    private func createNewGameHandlers(for chatId: Int64) async throws {
         let newGame = Game()
+        cachedGames[chatId] = newGame
         await add(handler: handlerFactory.addPlayerMenuHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createPassTurnCallbackHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.joinToGameHandler(chatId: chatId, game: newGame), for: chatId)
@@ -108,6 +151,7 @@ actor HandlerManager {
         activeSessions[chatId] = nil
         try await removeAllHandlers(for: chatId)
         await removeChatGptHandler()
+        cachedGames = [:]
         try await app.tgApi.sendMessage(chatId: chatId, text: "Сессия прекращена. Наберите снова /play чтобы начать игру заново или возобновить игру")
         await app.logger.log(event: .stopSession(chatId: chatId))
     }
