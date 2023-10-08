@@ -106,6 +106,7 @@ actor HandlerManager {
     private func createNewGameHandlers(for chatId: Int64) async throws {
         let newGame = Game()
         cachedGames[chatId] = newGame
+        await add(handler: handlerFactory.createKickCommandHandler(game: newGame, chatId: chatId), for: chatId)
         await add(handler: handlerFactory.addPlayerMenuHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.createPassTurnCallbackHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.joinToGameHandler(chatId: chatId, game: newGame), for: chatId)

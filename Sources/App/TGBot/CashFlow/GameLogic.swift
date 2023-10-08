@@ -56,6 +56,12 @@ actor Game {
         }
     }
     
+    func deletePlayer(player: Player) {
+        let players = players.filter { $0.id != player.id }
+        guard !players.isEmpty else { return }
+        self.players = players
+    }
+    
     func start() {
         isStarted = true
     }
