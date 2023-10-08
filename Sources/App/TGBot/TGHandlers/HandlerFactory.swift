@@ -9,6 +9,7 @@ final class HandlerFactory {
         case playCommandHandler
         case restartPlayCommandHandler
         case rollDiceCommandHandler
+        case kickCommandHandler
         case addPlayerMenuCallback
         case joingToGameCallback
         case startGameCallback
@@ -75,6 +76,29 @@ final class HandlerFactory {
             try await Task.sleep(nanoseconds: 3000000000)
             guard let diceResult = diceMessage.dice?.value else { return }
             try await self?.tgApi.sendMessage(chatId: chatId, text: "\(update.message?.from?.username ?? ""), у вас выпало: \(diceResult)")
+        }
+    }
+    
+    func createKickCommandHandler(game: Game, chatId: Int64) -> TGHandlerPrtcl {
+        TGCommandHandler(
+            name: Handler.kickCommandHandler.rawValue,
+            commands: ["/kick", "/kick@cashflow_game_ru_bot"]
+        ) { [weak self] update, bot in
+            let adminId = await game.adminId
+            let isAdmin = update.message?.from?.id == adminId
+            let isStarted = await game.isStarted
+            
+            let kickUserName = (update.message?.text ?? "").split(separator: " ").map{ String($0) }.first { $0.hasPrefix("@")}
+            let toKickUserPlayer = await game.players.first { $0.name == (kickUserName ?? "@").dropFirst() }
+            guard
+                isAdmin,
+                isStarted,
+                chatId == update.message?.chat.id,
+                let toKickUserPlayer,
+                toKickUserPlayer.id != adminId
+            else { return }
+            await game.deletePlayer(player: toKickUserPlayer)
+            try await self?.tgApi.sendMessage(chatId: chatId, text: "Игрок \(toKickUserPlayer.name) удален из игры")
         }
     }
     
@@ -328,7 +352,7 @@ final class HandlerFactory {
             try await sendMap(
                 for: game.currentPlayer.position,
                 chatId: chatId,
-                captionText: "\(currentUserName) теперь ваш ход. Вы находитесь тут",
+                captionText: "\(currentUserName), вы находитесь тут",
                 buttons: nil
             )
             
