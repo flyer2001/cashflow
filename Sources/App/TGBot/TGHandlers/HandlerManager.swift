@@ -163,8 +163,9 @@ actor HandlerManager {
             guard let message = update.message else { return }
             await self?.removeChatGptHandler()
             let state = DialogState()
+            let adminIds: [Int64] = [566335622, 364433394]
             let params: TGSendMessageParams
-            if message.from?.id == 566335622,
+            if let id = message.from?.id, adminIds.contains(id),
                message.chat.type == .private,
                await !state.isDialog
             {
