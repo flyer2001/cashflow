@@ -79,7 +79,7 @@ final class AppTests: XCTestCase {
         try await handler.handle(update: update, bot: app.bot)
         
         XCTAssertEqual(events, [.startGameMenuSent])
-        wait(for: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 1.0)
         
         try await app.tgApi.deleteMessage(chatId: chatId, messageId: messageId)
     }
@@ -236,7 +236,7 @@ final class AppTests: XCTestCase {
                 XCTAssertEqual(handler.name, HandlerFactory.Handler.endTurnCallback.rawValue + "_\(chatId)")
                 try? await handler.handle(update: update, bot: self.app.bot)
             }
-        await waitForExpectations(timeout: 1, handler: nil)
+        await fulfillment(of: [expectation], timeout: 1.0)
         try? await self.app.tgApi.deleteMessage(chatId: self.chatId, messageId: self.messageId)
     }
     
@@ -299,7 +299,7 @@ final class AppTests: XCTestCase {
                 completion: completion
             )
         }
-        await waitForExpectations(timeout: 1, handler: nil)
+        await fulfillment(of: [expectation], timeout: 1.0)
     }
     
     // Отправка фото с кнопками, удаление кнопок под фотками
@@ -339,7 +339,7 @@ final class AppTests: XCTestCase {
                     completion: editInlineButtonCompletion
                 )
         }
-        await waitForExpectations(timeout: 1, handler: nil)
+        await fulfillment(of: [expectation], timeout: 1.0)
     }
     
     // Отправка фото из кеша с caption, удаление caption, изменение кнопок
@@ -384,7 +384,7 @@ final class AppTests: XCTestCase {
                     completion: editCaptionCompletion
                 )
         }
-        await waitForExpectations(timeout: 1, handler: nil)
+        await fulfillment(of: [expectation], timeout: 1.0)
     }
     
     // Проверка отправки сообщения
@@ -423,6 +423,6 @@ final class AppTests: XCTestCase {
             )
         }
         
-        await waitForExpectations(timeout: 1, handler: nil)
+        await fulfillment(of: [expectation], timeout: 1.0)
     }
 }

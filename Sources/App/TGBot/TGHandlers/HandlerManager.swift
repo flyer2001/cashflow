@@ -39,13 +39,64 @@ actor HandlerManager {
         let filteredHandlers = activeHandlers[chatId]?.filter({ $0.name != handlerToRemove.name })
         activeHandlers[chatId] = filteredHandlers
     }
-   
+    
+    private func removeOnboardingHandlers(in chatId: Int64) async {
+        guard let dispatcher = await app.dispatcher as? Dispatcher else { return }
+        
+        let handlersToRemove = activeHandlers[chatId]?.filter { $0.name.contains(HandlerFactory.Handler.nextOnboardingCallback.rawValue)
+            && $0.name.contains("\(chatId)")
+        }
+        guard let handlersToRemove = handlersToRemove else { return }
+        dispatcher.removeOnboardingHandler(for: chatId)
+        let removedFilterNames = handlersToRemove.map { $0.name }
+        let filteredHandlers = activeHandlers[chatId]?.filter { !removedFilterNames.contains($0.name) }
+        activeHandlers[chatId] = filteredHandlers
+    }
+    
     private func removeAllHandlers(for chatId: Int64) async throws {
         guard let dispatcher = await app.dispatcher as? Dispatcher else { return }
-        await dispatcher.removeAll(by: chatId)
+        dispatcher.removeAll(by: chatId)
         
         activeHandlers[chatId] = nil
     }
+    
+    func addOnboardingHandler(items: [OnboardingContentItem], startKey: String) async {
+        let onboardingHandler = handlerFactory.createOnboardingHandler { [weak self] chatId in
+            
+            let onboarding = Onboarding(items: items, startKey: startKey) {
+                await self?.removeOnboardingHandlers(in: chatId)
+            }
+            
+            // await self?.createNextOnboardingHandler(chatId: chatId, onboarding: onboarding, key: startKey)
+            // тут надо на трезвую голову докурить как посылать сразу сообщение и подписываться на обновленя
+            // Возможно стоить завязаться на Onbording, типа опачки произошло переключение айтема давай триггерится и обновлять хэндлеры
+            await self?.handlerFactory.sendOnboardingMessage(chatId: chatId, onboarding: onboarding, key: startKey) { [weak self] nextKeys in
+                await self?.removeOnboardingHandlersAndAddNew(chatId: chatId, onboarding: onboarding, for: nextKeys)
+            }
+            
+        }
+        await app.dispatcher.add(onboardingHandler)
+    }
+    
+    private func createNextOnboardingHandler(chatId: Int64, onboarding: Onboarding, key: String) async {
+        let nextOnboardingItemHandler = handlerFactory.createNextStepHandler(
+            chatId: chatId,
+            onboarding: onboarding,
+            key: key)
+        { [weak self] nextKeys in
+            await self?.removeOnboardingHandlersAndAddNew(chatId: chatId, onboarding: onboarding, for: nextKeys)
+        }
+        await add(handler: nextOnboardingItemHandler, for: chatId)
+    }
+    
+    private func removeOnboardingHandlersAndAddNew(chatId: Int64, onboarding: Onboarding, for keys: [String]) async {
+        await removeOnboardingHandlers(in: chatId)
+        guard !keys.isEmpty else { return }
+        await keys.asyncForEach { key in
+            await createNextOnboardingHandler(chatId: chatId, onboarding: onboarding, key: key)
+        }
+    }
+    
     
     func addDefaultPlayHandler() async throws {
         let defaultHandler = try handlerFactory.createDefaultPlayHandler { [weak self] chatId, userId in
@@ -88,6 +139,7 @@ actor HandlerManager {
             
             try await self?.restartGame(for: chatId)
         }
+        await addOnboardingHandler(items: Onboarding.start, startKey: "start")
         await app.dispatcher.add(defaultHandler)
         let rollDiceCommandHandler =  handlerFactory.createRollDiceCommandHandler()
         await app.dispatcher.add(rollDiceCommandHandler)
@@ -97,6 +149,7 @@ actor HandlerManager {
     }
     
     private func restartGame(for chatId: Int64) async throws {
+        print("restart")
         try await removeAllHandlers(for: chatId)
         await removeChatGptHandler()
 
@@ -159,6 +212,7 @@ actor HandlerManager {
     
     // Ниже поддержка чат бота
     private func startHandler() async {
+        print("add start handler")
         await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { [weak self] update, bot in
             guard let message = update.message else { return }
             await self?.removeChatGptHandler()
@@ -224,6 +278,6 @@ actor HandlerManager {
     
     private func removeChatGptHandler() async {
         guard let dispatcher = await app.dispatcher as? Dispatcher else { return }
-        await dispatcher.removeChatGptHandler()
+        dispatcher.removeChatGptHandler()
     }
 }

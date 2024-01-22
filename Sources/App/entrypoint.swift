@@ -64,6 +64,7 @@ actor App: RouteCollection {
         routes.post("telegramWebHook", use: telegramWebHook)
     }
     
+    @Sendable
     private func telegramWebHook(_ req: Request) async throws -> Bool {
         let update: TGUpdate = try req.content.decode(TGUpdate.self)
         return try await dispatcher.process([update])

@@ -8,7 +8,7 @@ let package = Package(
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.81.0"),
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.91.1"),
         .package(url: "https://github.com/nerzh/telegram-vapor-bot", .upToNextMajor(from: "2.3.2")),
         // ChatGPT
         .package(url: "https://github.com/flyer2001/ChatGPTSwift", .upToNextMajor(from: "1.0.0")),

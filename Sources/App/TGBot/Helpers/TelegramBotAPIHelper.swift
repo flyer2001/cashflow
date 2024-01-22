@@ -106,6 +106,60 @@ actor TelegramBotAPIHelper {
         await logger.log(event: .message(id: update.messageId))
     }
     
+    func sendPhoto(
+        chatId: Int64,
+        captionText: String? = nil,
+        parseMode:TGParseMode? = nil,
+        photoUrl: String,
+        inlineButtons: [[TGInlineKeyboardButton]]? = nil,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let url = TGFileInfo.url(photoUrl)
+        let params = TGSendPhotoParams(
+            chatId: .chat(chatId),
+            photo: url,
+            caption: captionText,
+            parseMode: parseMode,
+            replyMarkup: TGReplyMarkup(inlineButtons: inlineButtons)
+        )
+        
+        let update = try await bot.sendPhoto(params: params)
+        await completion?(update)
+        await logger.log(event: .sendDrawingMap)
+        await logger.log(event: .message(id: update.messageId))
+    }
+    
+    /// Отправка видео по url
+    /// - Parameters:
+    ///   - chatId: id чата в который отправляется сообщение
+    ///   - captionText: текст для медиафайлов (не путать с телом сообщения)
+    ///   - parseMode: тип парсинга cationText
+    ///   - inlineButtons: кнопки для взаимодействия с контентом
+    ///   - videoUrl: ссылка на видео
+    ///   - completion: в замыкании возвращается модель сообщения, отправленная пользователю
+    func sendVideo(
+        chatId: Int64,
+        captionText: String? = nil,
+        parseMode: TGParseMode? = nil,
+        inlineButtons: [[TGInlineKeyboardButton]]? = nil,
+        videoUrl: String,
+        completion: ((TGMessage) async -> ())? = nil
+    ) async throws {
+        let url = TGFileInfo.url(videoUrl)
+        let params = TGSendVideoParams(
+            chatId: .chat(chatId),
+            video: url,
+            caption: captionText,
+            parseMode: parseMode,
+            replyMarkup: TGReplyMarkup(inlineButtons: inlineButtons)
+        )
+        
+        let update = try await bot.sendVideo(params: params)
+        await completion?(update)
+        await logger.log(event: .sendDrawingMap)
+        await logger.log(event: .message(id: update.messageId))
+    }
+    
     /// Для медиафайлов свой метод редактирования сообщений. Сам медиафайл можно только удалить
     /// - Parameters:
     ///   - chatId: id чата в который отправляется сообщение

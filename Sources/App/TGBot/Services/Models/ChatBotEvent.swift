@@ -7,6 +7,8 @@ enum ChatBotEvent: Equatable {
     case sendMapFromCache
     case mapIsDrawing
     case sendDrawingMap
+    case sendImageFromUrl
+    case sendVideo
     case saveCacheId
     case endTurn
     case popSmallDealsDeck
@@ -51,6 +53,10 @@ extension ChatBotEvent {
             return "Пользователь выбрал большие сделки"
         case .popMeetingDeck:
             return "Пользователь достал карточку знакомства"
+        case .sendVideo:
+            return "Отправлено сообщение с видео"
+        case .sendImageFromUrl:
+            return "Отправлено сообщение с изображением"
         case .updateSession(let chatId):
             return "Таймер сессии чата \(chatId) обновлен"
         case .stopSession(let chatId):
