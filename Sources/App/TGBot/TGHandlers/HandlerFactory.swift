@@ -23,6 +23,9 @@ final class HandlerFactory {
         case chooseBigDealsCallback
         case acceptCharityCallback
         case declineCharityCallback
+        // Onboarding
+        case onboardingCommandHandler
+        case nextOnboardingCallback
     }
     
     
@@ -45,12 +48,111 @@ final class HandlerFactory {
         self.mapDrawer = mapDrawer
         self.professionsCardDrawer = professionsCardDrawer
     }
+    
+    func createOnboardingHandler(_ completion: @escaping (_ chatId: Int64) async throws -> ()) -> TGHandlerPrtcl {
+        TGCommandHandler(
+            name: Handler.onboardingCommandHandler.rawValue,
+            commands: ["/onboarding", "/onboarding@cashflow_game_ru_bot"]
+        ) { update, bot in
+            guard
+                let chatId = update.message?.chat.id
+            else {
+                throw HandlerFactoryError.chatIdNotFound
+            }
+            
+            try await completion(chatId)
+        }
+    }
+    
+    func createNextStepHandler(
+        chatId: Int64,
+        onboarding: Onboarding,
+        key: String,
+        nextStepPrepareCompletion: ((_ keys: [String]) async -> ())?
+    ) -> TGHandlerPrtcl {
+        let callbackName = "\(Handler.nextOnboardingCallback.rawValue)_\(chatId)_\(key)"
+        return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update, bot in
+            guard
+                let self = self,
+                chatId == update.callbackQuery?.message?.chat.id
+            else { return }
+            
+            if let previousMessage = await onboarding.currentMessage {
+                try? await self.removeButtonFromCaptionOrTextMessage(in: previousMessage, chatId: chatId)
+            }
+            
+            await onboarding.moveTo(key: key)
+            await self.sendOnboardingMessage(chatId: chatId, onboarding: onboarding, key: key, nextStepPrepareCompletion: nextStepPrepareCompletion)
+        }
+    }
+    
+    func sendOnboardingMessage(
+        chatId: Int64,
+        onboarding: Onboarding,
+        key: String,
+        nextStepPrepareCompletion: ((_ keys: [String]) async -> ())?
+    ) async {
+        let nextStepsButtons = await onboarding.nextStepsButtons()
+        let nextButtons: [[TGInlineKeyboardButton]]? = nextStepsButtons.isEmpty
+        ? nil
+        : [nextStepsButtons.map {
+            .init(
+                text: $0.buttonName,
+                callbackData: "\(Handler.nextOnboardingCallback.rawValue)_\(chatId)_\($0.key)")
+        }]
+        
+        let keys = nextStepsButtons.map { $0.key }
+        
+        let isNextLast = await onboarding.isNextLast()
+        
+        if let item = await onboarding.show() {
+            var nextButton: [[TGInlineKeyboardButton]]? {
+                isNextLast
+                ? nil
+                : nextButtons
+            }
+            
+            let onboardingShowMessageCompletion: (TGMessage) async -> () = { message in
+                await onboarding.setCurrentMessage(message)
+                if isNextLast {
+                    await onboarding.endCompletion?()
+                }
+            }
+            
+            switch item.content {
+            case .text(let text):
+                try? await tgApi.sendMessage(
+                    chatId: chatId,
+                    text: text,
+                    inlineButtons: nextButtons,
+                    completion:onboardingShowMessageCompletion
+                )
+            case .video(let url, let captionText):
+                try? await tgApi.sendVideo(
+                    chatId: chatId,
+                    captionText: captionText,
+                    inlineButtons: nextButtons,
+                    videoUrl: url,
+                    completion: onboardingShowMessageCompletion
+                )
+            case .image(let url, let captionText):
+                try? await tgApi.sendPhoto(
+                    chatId: chatId,
+                    captionText: captionText,
+                    photoUrl: url,
+                    inlineButtons: nextButtons,
+                    completion: onboardingShowMessageCompletion
+                )
+            }
+        }
+        await nextStepPrepareCompletion?(keys)
+    }
 
     func createDefaultPlayHandler(startGameCompletion: @escaping (_ chatId: Int64, _ userId: Int64) async throws -> ()) throws -> TGHandlerPrtcl {
         TGCommandHandler(
             name: Handler.playCommandHandler.rawValue,
             commands: ["/play", "/play@cashflow_game_ru_bot"]
-        ) { [weak self] update, bot in
+        ) { update, bot in
             guard
                 let chatId = update.message?.chat.id,
                 let userId = update.message?.from?.id

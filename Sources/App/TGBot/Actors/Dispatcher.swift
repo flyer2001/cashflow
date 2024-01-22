@@ -6,13 +6,22 @@ final class Dispatcher: TGDefaultDispatcher {
         try await super.init(bot: bot)
     }
     
-    func removeAll(by chatId: Int64) async {
+    func removeAll(by chatId: Int64) {
         guard let group = handlersGroup.first else { return }
         let filtered = group.filter { $0.name.range(of: "\(chatId)", options: .caseInsensitive) == nil }
         handlersGroup = [filtered]
     }
     
-    func removeChatGptHandler() async {
+    func removeOnboardingHandler(for chatId: Int64) {
+        guard let group = handlersGroup.first else { return }
+        let filtered = group.filter {
+            let isOnboardingHandler = $0.name.contains(HandlerFactory.Handler.nextOnboardingCallback.rawValue) && $0.name.contains("\(chatId)")
+            return !isOnboardingHandler
+        }
+        handlersGroup = [filtered]
+    }
+    
+    func removeChatGptHandler() {
         guard let group = handlersGroup.first else { return }
         let filtered = group.filter { $0.name != "chatGpt" }
         handlersGroup = [filtered]
