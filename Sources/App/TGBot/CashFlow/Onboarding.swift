@@ -31,6 +31,10 @@ struct OnboardingContentItem {
             self.buttons = buttons
         }
         
+        init(button: Button) {
+            self.buttons = [button]
+        }
+        
         init(key: String, buttonName: String = "Далее") {
             self.buttons = [Button(key: key, buttonName: buttonName)]
         }
