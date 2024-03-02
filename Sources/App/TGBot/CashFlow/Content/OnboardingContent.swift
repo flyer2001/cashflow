@@ -551,7 +551,7 @@ extension Onboarding {
         .init(
             key: "coastsFill",
             content: .video(
-                uri: "https://github.com/flyer2001/cashflow/raw/main/OnboardingVideo/fire.mp4",
+                uri: "https://github.com/flyer2001/cashflow/raw/main/OnboardingVideo/check02.mp4",
                 captionText: "Посмотрим видео, как внести расходы, и продолжим"
             ),
             next: .init(button:
