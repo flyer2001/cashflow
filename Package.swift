@@ -8,11 +8,11 @@ let package = Package(
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.91.1"),
+        .package(url: "https://github.com/vapor/vapor.git", .upToNextMajor(from: "4.105.2")),
         .package(url: "https://github.com/nerzh/swift-telegram-sdk", .upToNextMajor(from: "3.5.2")),
         // ChatGPT
-        .package(url: "https://github.com/flyer2001/ChatGPTSwift", .upToNextMajor(from: "1.0.0")),
-        .package(url: "https://github.com/t-ae/Swim", .upToNextMajor(from: "3.0.0")),
+        .package(url: "https://github.com/alfianlosari/ChatGPTSwift.git", .upToNextMajor(from: "2.3.3")),
+        .package(url: "https://github.com/t-ae/Swim", .upToNextMajor(from: "3.9.0")),
     ],
     targets: [
         .executableTarget(

@@ -21,10 +21,10 @@
     {
       "identity" : "chatgptswift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/flyer2001/ChatGPTSwift",
+      "location" : "https://github.com/alfianlosari/ChatGPTSwift.git",
       "state" : {
-        "revision" : "b5abba79abc79a2c7fec1d56996eeba9aef82a4b",
-        "version" : "1.4.3"
+        "revision" : "3b2f2b6fe2ac38d4bfbcaeed8a637f22f51631b6",
+        "version" : "2.3.3"
       }
     },
     {
@@ -190,6 +190,33 @@
       }
     },
     {
+      "identity" : "swift-openapi-async-http-client",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-server/swift-openapi-async-http-client",
+      "state" : {
+        "revision" : "abfe558a66992ef1e896a577010f957915f30591",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "swift-openapi-runtime",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-openapi-runtime",
+      "state" : {
+        "revision" : "26e8ae3515d1ff3607e924ac96fc0094775f55e8",
+        "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "swift-openapi-urlsession",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-openapi-urlsession",
+      "state" : {
+        "revision" : "9bf4c712ad7989d6a91dbe68748b8829a50837e4",
+        "version" : "1.0.2"
+      }
+    },
+    {
       "identity" : "swift-regular-expression",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nerzh/swift-regular-expression",
@@ -230,8 +257,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/vapor.git",
       "state" : {
-        "revision" : "236025b6a213f372f81b732ff792f95789c089d4",
-        "version" : "4.104.0"
+        "revision" : "a4d7d4d32ef4a21dd10bc6375f4d20da3c5594e4",
+        "version" : "4.105.2"
       }
     },
     {
