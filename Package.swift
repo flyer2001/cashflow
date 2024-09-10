@@ -4,12 +4,12 @@ import PackageDescription
 let package = Package(
     name: "tgbot",
     platforms: [
-       .macOS(.v12)
+        .macOS(.v13)
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.91.1"),
-        .package(url: "https://github.com/nerzh/telegram-vapor-bot", .upToNextMajor(from: "2.3.2")),
+        .package(url: "https://github.com/nerzh/swift-telegram-sdk", .upToNextMajor(from: "3.5.2")),
         // ChatGPT
         .package(url: "https://github.com/flyer2001/ChatGPTSwift", .upToNextMajor(from: "1.0.0")),
         .package(url: "https://github.com/t-ae/Swim", .upToNextMajor(from: "3.0.0")),
@@ -19,7 +19,7 @@ let package = Package(
             name: "App",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
-                .product(name: "TelegramVaporBot", package: "telegram-vapor-bot"),
+                .product(name: "SwiftTelegramSdk", package: "swift-telegram-sdk"),
                 .product(name: "ChatGPTSwift", package: "ChatGPTSwift"),
                 .product(name: "Swim", package: "Swim")
             ],

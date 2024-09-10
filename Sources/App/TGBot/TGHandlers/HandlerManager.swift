@@ -1,5 +1,5 @@
 import Vapor
-import TelegramVaporBot
+import SwiftTelegramSdk
 import ChatGPTSwift
 
 enum HandlerManagerError: Error {
@@ -171,18 +171,20 @@ actor HandlerManager {
         await add(handler: handlerFactory.createBigDealHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.acceptCharityHandler(chatId: chatId, game: newGame), for: chatId)
         await add(handler: handlerFactory.declineCharityHandler(chatId: chatId, game: newGame), for: chatId)
+        await add(handler: handlerFactory.createFinishCommandHandler(game: newGame, chatId: chatId), for: chatId)
     }
     
     private func observeSessionActivity() async {
-        await app.dispatcher.addBeforeAllCallback { [weak self] update in
-            guard let update = update.first else { return true }
-            let chatId = update.message?.chat.id ?? update.callbackQuery?.message?.chat.id
-            
-            guard let chatId = chatId else { return true }
-            await self?.startOrUpdateTimer(for: chatId)
-
-            return true
-        }
+        // TODO переписать активность
+//        await app.dispatcher.addBeforeAllCallback { [weak self] update in
+//            guard let update = update.first else { return true }
+//            let chatId = update.message?.chat.id ?? update.callbackQuery?.message?.chat.id
+//            
+//            guard let chatId = chatId else { return true }
+//            await self?.startOrUpdateTimer(for: chatId)
+//
+//            return true
+//        }
     }
     
     private func startOrUpdateTimer(for sessionChatId: Int64) async {
@@ -213,7 +215,7 @@ actor HandlerManager {
     // Ниже поддержка чат бота
     private func startHandler() async {
         print("add start handler")
-        await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { [weak self] update, bot in
+        await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/start"]))) { [weak self] update in
             guard let message = update.message else { return }
             await self?.removeChatGptHandler()
             let state = DialogState()
@@ -236,7 +238,7 @@ actor HandlerManager {
     private func messageHandler(state: DialogState) async {
         await state.startDialog()
         await app.dispatcher.add(
-            TGMessageHandler(name: "chatGpt", filters: (.all && !.command.names(["/exit"]))) { [weak self] update, bot in
+            TGMessageHandler(name: "chatGpt", filters: (.all && !.command.names(["/exit"]))) { [weak self] update in
                 guard
                     await state.isDialog,
                     let textFromUser = update.message?.text
@@ -253,7 +255,7 @@ actor HandlerManager {
                 if let keyApi = ProcessInfo.processInfo.environment["CHATPGPT_API_KEY"] {
                     apiKey = keyApi
                 } else {
-                    await self?.app.bot.app.logger.log(level: .critical, "Ключ chatgpt не получен")
+                    self?.app.tgApi.bot.log.log(level: .critical, "Ключ chatgpt не получен")
                 }
                 #endif
                 
@@ -266,7 +268,7 @@ actor HandlerManager {
                 try await self?.app.bot.sendMessage(params: params)
             }
         )
-        await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/exit"]))) { [weak self] update, bot in
+        await app.dispatcher.add(TGMessageHandler(filters: (.command.names(["/exit"]))) { [weak self] update in
             guard await state.isDialog else { return }
             await state.stopDialog()
             let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "выход")

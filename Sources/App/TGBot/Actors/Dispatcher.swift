@@ -1,9 +1,10 @@
-import TelegramVaporBot
+import SwiftTelegramSdk
+import Logging
 
 final class Dispatcher: TGDefaultDispatcher {
     
-    required init(bot: TGBot) async throws {
-        try await super.init(bot: bot)
+    required init(log: Logger) async throws {
+        try await super.init(log: log)
     }
     
     func removeAll(by chatId: Int64) {

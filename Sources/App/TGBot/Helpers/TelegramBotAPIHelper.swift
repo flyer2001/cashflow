@@ -1,9 +1,9 @@
 import Foundation
-import TelegramVaporBot
+import SwiftTelegramSdk
 
 actor TelegramBotAPIHelper {
     
-    private let bot: TGBot
+    let bot: TGBot
     private let logger: ChatBotLogger
     
     init(bot: TGBot, logger: ChatBotLogger) {

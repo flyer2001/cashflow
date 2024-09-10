@@ -1,10 +1,8 @@
 import Vapor
-import TelegramVaporBot
+import SwiftTelegramSdk
 
 // configures your application
 func configure(_ app: Application, completion: ((App) -> ())? = nil) async throws {
-    TGBot.log.logLevel = app.logger.logLevel
-    
     // TODO - сервис припилить который получает ключи
     // Получаем ключ бота
     var tgApi: String = ""
@@ -25,9 +23,18 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     }
     #endif
     
-    let tgBotConnection = TGBotConnection()
-    let bot: TGBot = .init(app: app, botId: tgApi)
+    //let tgBotConnection = TGBotConnection()
+    //let bot: TGBot = .init(botId: tgApi)
+    //let bot = TGBot(tgClient: VaporTGClient, botId: tgApi)
+    var connection = TGConnectionType.webhook(webHookURL: URL(string: "https://cashflow-game.ru/telegramWebHook")!)
+    #if os(macOS)
+    connection = .longpolling(limit: nil, timeout: nil, allowedUpdates: nil)
+    #endif
+    
+    let tgClient = VaporTGClient(client: app.client)
+    let bot = try await TGBot(connectionType: connection, tgClient: tgClient, botId: tgApi)
     let logger = ChatBotLogger(app: app)
+    let loggerVapor = Logger(label: "MainLogger")
     let imageCache = ImageCache(logger: logger)
     let mapDrawer = MapDrawer(cache: imageCache, logger: logger)
     let professionsCardDrawer = ProffessionsCardDrawer(cache: imageCache)
@@ -44,18 +51,11 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     let tgBotApp = App(
         cache: imageCache,
         logger: logger,
-        tgBotConnection: tgBotConnection,
         tgApiHelper: tgApiHelper,
         handlerFactory: handlerFactory
     )
     
-     #if os(Linux)
-    await tgBotApp.setConnection(try await TGWebHookConnection(bot: bot, webHookURL: "https://cashflow-game.ru/telegramWebHook", dispatcher: Dispatcher.self))
 
-    #elseif os(macOS)
-    // LongPolling использовать только для дебага
-    await tgBotApp.setConnection(try await TGLongPollingConnection(bot: bot, dispatcher: Dispatcher.self))
-    #endif
     
     var imagePath = ""
     var proffesionsPath = ""

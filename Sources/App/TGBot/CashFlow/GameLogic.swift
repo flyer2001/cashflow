@@ -111,7 +111,7 @@ actor Game {
     func charityBoostIfAvailable() -> Bool {
         guard currentPlayer.isCharityBoost else { return false }
         currentPlayer.charityBoostCount -= 1
-        return currentPlayer.charityBoostCount > 0 && currentPlayer.charityBoostCount < 3
+        return currentPlayer.charityBoostCount > 0 && currentPlayer.charityBoostCount < 4
     }
     
     // MARK: - Conflict Logic

@@ -1,4 +1,4 @@
-import TelegramVaporBot
+import SwiftTelegramSdk
 
 extension TGInlineKeyboardMarkup {
     convenience init?(buttons: [[TGInlineKeyboardButton]]?) {
