@@ -32,9 +32,10 @@ func configure(_ app: Application, completion: ((App) -> ())? = nil) async throw
     #endif
     
     let tgClient = VaporTGClient(client: app.client)
-    let bot = try await TGBot(connectionType: connection, tgClient: tgClient, botId: tgApi)
-    let logger = ChatBotLogger(app: app)
     let loggerVapor = Logger(label: "MainLogger")
+    let logger = ChatBotLogger(app: app)
+    let bot = try await TGBot(connectionType: connection, dispatcher: Dispatcher(log: loggerVapor), tgClient: tgClient, botId: tgApi, log: loggerVapor)
+    
     let imageCache = ImageCache(logger: logger)
     let mapDrawer = MapDrawer(cache: imageCache, logger: logger)
     let professionsCardDrawer = ProffessionsCardDrawer(cache: imageCache)

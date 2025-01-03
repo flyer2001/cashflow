@@ -138,18 +138,19 @@ actor HandlerManager {
             )
             
             try await self?.restartGame(for: chatId)
+            await self?.observeSessionActivity(chatId: chatId)
         }
         await addOnboardingHandler(items: Onboarding.start, startKey: "start")
         await app.dispatcher.add(defaultHandler)
         let rollDiceCommandHandler =  handlerFactory.createRollDiceCommandHandler()
         await app.dispatcher.add(rollDiceCommandHandler)
-        await observeSessionActivity()
+        
         
         await startHandler()
     }
     
     private func restartGame(for chatId: Int64) async throws {
-        print("restart")
+
         try await removeAllHandlers(for: chatId)
         await removeChatGptHandler()
 
@@ -174,17 +175,10 @@ actor HandlerManager {
         await add(handler: handlerFactory.createFinishCommandHandler(game: newGame, chatId: chatId), for: chatId)
     }
     
-    private func observeSessionActivity() async {
-        // TODO переписать активность
-//        await app.dispatcher.addBeforeAllCallback { [weak self] update in
-//            guard let update = update.first else { return true }
-//            let chatId = update.message?.chat.id ?? update.callbackQuery?.message?.chat.id
-//            
-//            guard let chatId = chatId else { return true }
-//            await self?.startOrUpdateTimer(for: chatId)
-//
-//            return true
-//        }
+    private func observeSessionActivity(chatId: Int64) async {
+        await app.dispatcher.add(handlerFactory.callbackQueryListener(chatId: chatId, completion: { [weak self] in
+            await self?.startOrUpdateTimer(for: chatId)
+        }), priority: 0)
     }
     
     private func startOrUpdateTimer(for sessionChatId: Int64) async {
@@ -238,6 +232,7 @@ actor HandlerManager {
     private func messageHandler(state: DialogState) async {
         await state.startDialog()
         await app.dispatcher.add(
+            // todo вынести Api в корень создавать при старте, сохранять историю контекста. 
             TGMessageHandler(name: "chatGpt", filters: (.all && !.command.names(["/exit"]))) { [weak self] update in
                 guard
                     await state.isDialog,

@@ -68,16 +68,6 @@ actor App: RouteCollection {
             return true
         }
     
-//    @Sendable
-//    private func telegramWebHook(_ req: Request) async throws {
-//        let update: TGUpdate = try req.content.decode(TGUpdate.self)
-//        try await dispatcher.process([update])
-//    }
-    
-    // Настройка бота
-//    func setConnection(_ connection: TGConnectionPrtcl) async {
-//        await tgBotConnection.setConnection(connection)
-//    }
     func startConnection() async throws {
         try await bot.start()
     }

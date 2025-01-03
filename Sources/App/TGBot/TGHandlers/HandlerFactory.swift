@@ -221,6 +221,13 @@ final class HandlerFactory {
         }
     }
     
+    func callbackQueryListener(chatId: Int64, completion: (() async -> ())? = nil) -> TGHandlerPrtcl {
+        TGCallbackQueryHandler(name: "Listener", pattern: ".+") { [weak self] update in
+            guard chatId == update.callbackQuery?.message?.chat.id else { return }
+            await completion?()
+        }
+    }
+    
     func addPlayerMenuHandler(chatId: Int64, game: Game) -> TGHandlerPrtcl {
         let callbackName = "\(Handler.addPlayerMenuCallback.rawValue)_\(chatId)"
         return TGCallbackQueryHandler(name: callbackName, pattern: callbackName) { [weak self] update in
@@ -392,10 +399,8 @@ final class HandlerFactory {
                 await self?.logger.log(event: .sendDice)
                 diceResult += charityDiceMessage?.dice?.value ?? 0
             }
-            let demoDiceResult = 8
             
-            let targetCell = await game.moveCurrentPlayer(step: demoDiceResult)
-            
+            let targetCell = await game.moveCurrentPlayer(step: diceResult)
             
             let nextStepButtons: [[TGInlineKeyboardButton]]
             if case BoardCell.possibilities = targetCell {
@@ -521,7 +526,7 @@ final class HandlerFactory {
             let currentVariant = 4 - (await game.currentPlayer.conflictOptionsCount)
             let message: String
             let isResumeGame: Bool
-            if await game.isResolveConflict(dice: 2) {
+            if await game.isResolveConflict(dice: diceResult) {
                 message = "Поздравляем! Вы разрешили конфликт, с помощью варианта \(currentVariant)! Внесите в свою таблицу удвоенный доход! И продолжайте игру."
                 isResumeGame = true
             } else if await game.currentPlayer.conflictOptionsCount > 0 {
