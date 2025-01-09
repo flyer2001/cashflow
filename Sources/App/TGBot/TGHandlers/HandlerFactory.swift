@@ -458,6 +458,7 @@ final class HandlerFactory {
                 currentPlayerId == update.callbackQuery?.from.id || isAdmin
             else { return }
             
+            await game.nextPlayer()
             guard try await self.checkStatePlayer(game: game, chatId: chatId) else { return }
                 
             let currentUserName = await game.currentPlayer.name

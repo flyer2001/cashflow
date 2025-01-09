@@ -259,7 +259,6 @@ actor HandlerManager {
                 let gptAnswer = try await api.sendMessage(
                     text: textFromUser
                 )
-                api.appendToHistoryList(userText: textFromUser, responseText: gptAnswer)
 
                 let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: gptAnswer)
                 try await self?.app.bot.sendMessage(params: params)
