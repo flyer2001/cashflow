@@ -124,10 +124,10 @@ actor HandlerManager {
             let buttons: [[TGInlineKeyboardButton]] = [
                 [
                     .init(text: "Новая игра", callbackData: "\(HandlerFactory.Handler.addPlayerMenuCallback.rawValue)_\(chatId)"),
-                    .init(text: "Возобновить игру", callbackData: "\(HandlerFactory.Handler.resumeCallback.rawValue)_\(chatId)"),
+                    //.init(text: "Возобновить игру", callbackData: "\(HandlerFactory.Handler.resumeCallback.rawValue)_\(chatId)"),
                 ],
                 [
-                    .init(text: "Правила игры", callbackData: "\(HandlerFactory.Handler.rulesCallback.rawValue)_\(chatId)"),
+                    //.init(text: "Правила игры", callbackData: "\(HandlerFactory.Handler.rulesCallback.rawValue)_\(chatId)"),
                 ]
             ]
             try await self?.app.tgApi.sendMessage(
